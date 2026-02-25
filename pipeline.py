@@ -45,7 +45,8 @@ async def run_pipeline(config: dict, stages: list[str]):
     if "enhance" in stages:
         log.info("=== Stage: enhance ===")
         from src.content.enhancer import run_enhancer
-        await run_enhancer(config)
+        import_mode = getattr(run_pipeline, "_import_mode", False)
+        await run_enhancer(config, import_mode=import_mode)
 
     if "render" in stages:
         log.info("=== Stage: render ===")
@@ -62,6 +63,8 @@ def main():
         help="Run a single stage only (default: all stages in order)"
     )
     parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
+    parser.add_argument("--import", dest="import_mode", action="store_true",
+                        help="Import enhanced_outputs.jsonl into DB (use with --stage enhance)")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -69,6 +72,7 @@ def main():
 
     # Pipeline doesn't require Telegram credentials
     stages = [args.stage] if args.stage else STAGES
+    run_pipeline._import_mode = args.import_mode
     log.info("Running stages: %s", stages)
     asyncio.run(run_pipeline(config, stages))
 

@@ -1,22 +1,31 @@
-"""LLM-based lesson enhancer.
+"""LLM-based lesson enhancer — Claude Code session workflow.
 
-Rewrites raw chunk text into 3 lesson types:
-- concept    (~800 words) : intuitive intro, analogies, 1-2 key formulas
-- deep_dive  (~1000 words): detailed derivation, worked example for role
-- quiz       (~600 words) : 3 MCQs + 1 open-ended + answer key (JSON embedded)
+Flow:
+  Step 1: pipeline.py --stage enhance
+          → generates data/pending_prompts.jsonl (one JSON per line)
+          → prints instructions for Claude Code session
 
-Enhancement is idempotent: already-completed lessons are skipped.
-Pipeline is resumable: tracks status per lesson in DB.
+  Step 2: Claude Code reads + processes each prompt in data/pending_prompts.jsonl
+          → writes results to data/enhanced_outputs.jsonl
+
+  Step 3: pipeline.py --stage enhance --import
+          → imports data/enhanced_outputs.jsonl into DB (idempotent)
+
+This avoids Anthropic API costs — uses Claude Code subscription instead.
+For automated/API mode, set ENHANCEMENT_PROVIDER=api in env (uses config.yaml).
 """
 import json
 import logging
+import os
 import re
 
 from src.knowledge import db
 from src.knowledge.models import Lesson
-from src.llm.provider import LLMProvider, build_enhancement_provider
 
 log = logging.getLogger(__name__)
+
+PROMPTS_FILE = "data/pending_prompts.jsonl"
+OUTPUTS_FILE = "data/enhanced_outputs.jsonl"
 
 # ─── System prompt ────────────────────────────────────────────────────────────
 
@@ -95,12 +104,10 @@ CÔNG THỨC LIÊN QUAN:
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 def _extract_title(content: str) -> str:
-    """Extract markdown heading as lesson title."""
     for line in content.splitlines():
         line = line.strip()
         if line.startswith("#"):
             return re.sub(r"^#+\s*", "", line).strip()
-    # Fallback: first non-empty line
     for line in content.splitlines():
         if line.strip():
             return line.strip()[:80]
@@ -108,78 +115,158 @@ def _extract_title(content: str) -> str:
 
 
 def _extract_quiz_json(content: str) -> str | None:
-    """Extract ```json ... ``` block from quiz lesson content."""
     m = re.search(r"```json\s*(\{.*?\})\s*```", content, re.DOTALL)
     if m:
         try:
-            parsed = json.loads(m.group(1))
-            return json.dumps(parsed, ensure_ascii=False)
+            return json.dumps(json.loads(m.group(1)), ensure_ascii=False)
         except json.JSONDecodeError as e:
             log.warning("Quiz JSON parse error: %s", e)
     return None
 
 
-# ─── Core enhancement ────────────────────────────────────────────────────────
-
-async def enhance_lesson(lesson: Lesson, llm: LLMProvider, role: str) -> Lesson:
-    """Enhance a single lesson using the LLM. Updates lesson in-place and returns it."""
-    template = PROMPT_TEMPLATES[lesson.lesson_type]
-    user_prompt = template.format(
-        role=role,
-        content=lesson.content_enhanced[:4000],  # cap to avoid token overrun
-        formulas=_format_formulas(lesson),
-    )
-    system_prompt = SYSTEM_PROMPT.format(role=role)
-
-    enhanced_text = await llm.generate(system_prompt, user_prompt)
-
-    lesson.title = _extract_title(enhanced_text)
-    lesson.content_enhanced = enhanced_text
-    lesson.enhancement_status = "completed"
-
-    if lesson.lesson_type == "quiz":
-        lesson.quiz_json = _extract_quiz_json(enhanced_text)
-
-    return lesson
-
-
-def _format_formulas(lesson: Lesson) -> str:
-    """Format formula list for prompt injection."""
-    # formulas are embedded in the raw content_enhanced text as {{FORMULA_N}} placeholders;
-    # also attempt to collect any raw LaTeX snippets visible in the text
+def _format_formulas(content: str) -> str:
     latex_pattern = re.compile(r"\$\$?[^$]+\$\$?|\\\(.*?\\\)|\\\[.*?\\\]", re.DOTALL)
-    found = latex_pattern.findall(lesson.content_enhanced[:3000])
-    if found:
-        return "\n".join(f"- {f}" for f in found[:10])
-    return "(see content above)"
+    found = latex_pattern.findall(content[:3000])
+    return "\n".join(f"- {f}" for f in found[:10]) if found else "(see content above)"
 
 
-# ─── Pipeline orchestrator ────────────────────────────────────────────────────
+def _build_prompt(lesson: Lesson, role: str) -> str:
+    template = PROMPT_TEMPLATES[lesson.lesson_type]
+    return template.format(
+        role=role,
+        content=lesson.content_enhanced[:4000],
+        formulas=_format_formulas(lesson.content_enhanced),
+    )
 
-async def run_enhancer(config: dict):
-    """Enhance all pending lessons. Idempotent and resumable."""
+
+# ─── Step 1: Generate prompts file ────────────────────────────────────────────
+
+async def generate_prompts(config: dict):
+    """Write pending lessons as prompts to data/pending_prompts.jsonl."""
     role = config["user"]["role"]
-    llm = build_enhancement_provider(config)
+    os.makedirs("data", exist_ok=True)
 
     pending = await db.get_pending_lessons()
     if not pending:
         log.info("No pending lessons. Enhancement already complete.")
+        return 0
+
+    # Load already-output lesson IDs to skip
+    done_ids = _load_done_ids()
+
+    written = 0
+    with open(PROMPTS_FILE, "a") as f:  # append mode = resumable
+        for lesson in pending:
+            key = f"{lesson.id}_{lesson.lesson_type}"
+            if key in done_ids:
+                continue
+            system = SYSTEM_PROMPT.format(role=role)
+            user_prompt = _build_prompt(lesson, role)
+            record = {
+                "lesson_id": lesson.id,
+                "lesson_type": lesson.lesson_type,
+                "sequence": lesson.sequence,
+                "system": system,
+                "prompt": user_prompt,
+            }
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            written += 1
+
+    log.info("Wrote %d prompts to %s", written, PROMPTS_FILE)
+
+    if written > 0:
+        print(f"""
+╔══════════════════════════════════════════════════════════════╗
+║         ENHANCEMENT: Claude Code Session Required            ║
+╠══════════════════════════════════════════════════════════════╣
+║  {written} lessons need enhancement.                         ║
+║                                                              ║
+║  Ask Claude Code to run:                                     ║
+║    "Process enhancement prompts in data/pending_prompts.jsonl║
+║     and write results to data/enhanced_outputs.jsonl"        ║
+║                                                              ║
+║  Then import results:                                        ║
+║    python pipeline.py --stage enhance --import               ║
+╚══════════════════════════════════════════════════════════════╝
+""")
+    return written
+
+
+# ─── Step 2 (done by Claude Code): process prompts → outputs ─────────────────
+# Claude Code reads PROMPTS_FILE, generates enhanced content, writes OUTPUTS_FILE
+# Format per line: {"lesson_id": N, "lesson_type": "...", "content": "...enhanced..."}
+
+
+# ─── Step 3: Import outputs into DB ──────────────────────────────────────────
+
+async def import_outputs(config: dict):
+    """Import enhanced_outputs.jsonl into DB. Idempotent."""
+    if not os.path.exists(OUTPUTS_FILE):
+        log.error("No outputs file found: %s", OUTPUTS_FILE)
         return
 
-    log.info("Enhancing %d pending lessons (role: %s)...", len(pending), role)
-    succeeded = failed = 0
+    succeeded = failed = skipped = 0
+    with open(OUTPUTS_FILE) as f:
+        for line_num, line in enumerate(f, 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+                lesson_id = record["lesson_id"]
+                content = record["content"]
+            except (json.JSONDecodeError, KeyError) as e:
+                log.warning("Line %d malformed: %s", line_num, e)
+                failed += 1
+                continue
 
-    for lesson in pending:
-        await db.update_lesson_status(lesson.id, "in_progress")
-        try:
-            enhanced = await enhance_lesson(lesson, llm, role)
-            await db.update_lesson_content(enhanced)
+            # Fetch the lesson
+            from src.knowledge.db import get_db, _row_to_lesson
+            async with get_db() as conn:
+                rows = await conn.execute_fetchall(
+                    "SELECT * FROM lessons WHERE id=?", (lesson_id,)
+                )
+            if not rows:
+                log.warning("Lesson %d not found in DB", lesson_id)
+                skipped += 1
+                continue
+
+            lesson = _row_to_lesson(rows[0])
+            if lesson.enhancement_status == "completed":
+                skipped += 1
+                continue
+
+            lesson.title = _extract_title(content)
+            lesson.content_enhanced = content
+            lesson.enhancement_status = "completed"
+            if lesson.lesson_type == "quiz":
+                lesson.quiz_json = _extract_quiz_json(content)
+
+            await db.update_lesson_content(lesson)
             succeeded += 1
-            log.info("Enhanced lesson %d [%s] — %s",
-                     lesson.id, lesson.lesson_type, enhanced.title[:50])
-        except Exception as e:
-            failed += 1
-            await db.update_lesson_status(lesson.id, "pending")  # allow retry
-            log.error("Failed lesson %d [%s]: %s", lesson.id, lesson.lesson_type, e)
 
-    log.info("Enhancement done: %d succeeded, %d failed", succeeded, failed)
+    log.info("Import done: %d succeeded, %d failed, %d skipped", succeeded, failed, skipped)
+
+
+# ─── Orchestrator ─────────────────────────────────────────────────────────────
+
+async def run_enhancer(config: dict, import_mode: bool = False):
+    if import_mode:
+        await import_outputs(config)
+    else:
+        await generate_prompts(config)
+
+
+def _load_done_ids() -> set[str]:
+    """Return set of 'lesson_id_lesson_type' already in outputs file."""
+    done = set()
+    if not os.path.exists(OUTPUTS_FILE):
+        return done
+    with open(OUTPUTS_FILE) as f:
+        for line in f:
+            try:
+                r = json.loads(line.strip())
+                done.add(f"{r['lesson_id']}_{r.get('lesson_type','')}")
+            except Exception:
+                pass
+    return done
