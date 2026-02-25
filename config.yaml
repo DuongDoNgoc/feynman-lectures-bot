@@ -13,7 +13,7 @@ database:
 
 crawler:
   volumes: ["I", "II"]
-  daily_limit: 10          # max pages/day to avoid Cloudflare
+  daily_limit: 60          # max pages/day to avoid Cloudflare
   circuit_breaker: 20      # break after N consecutive failures
   request_delay_min: 1.0
   request_delay_max: 3.0

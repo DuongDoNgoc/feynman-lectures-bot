@@ -26,11 +26,8 @@ from src.knowledge.models import Chapter
 
 log = logging.getLogger(__name__)
 
-TOC_URLS = {
-    "I":  "https://www.feynmanlectures.caltech.edu/I_toc.html",
-    "II": "https://www.feynmanlectures.caltech.edu/II_toc.html",
-    "III": "https://www.feynmanlectures.caltech.edu/III_toc.html",
-}
+# Known chapter counts per volume (feynmanlectures.caltech.edu)
+VOLUME_CHAPTERS = {"I": 52, "II": 42, "III": 21}
 BASE_URL = "https://www.feynmanlectures.caltech.edu"
 
 USER_AGENTS = [
@@ -69,35 +66,22 @@ async def create_browser(headless: bool = True) -> AsyncGenerator[tuple[Browser,
             await browser.close()
 
 
-async def crawl_toc(page: Page, volume: str) -> list[dict]:
-    """Fetch ToC page and return list of {url, number, title} dicts."""
-    toc_url = TOC_URLS[volume]
-    log.info("Crawling ToC: %s", toc_url)
-    await page.goto(toc_url, wait_until="networkidle", timeout=30_000)
-    await asyncio.sleep(random.uniform(1.0, 2.0))
+def get_chapter_list(volume: str) -> list[dict]:
+    """Generate chapter URL list from known counts (no ToC fetch needed).
 
-    # Extract chapter links matching pattern /{vol}_NN.html
-    pattern = re.compile(rf"/{volume}_(\d+)\.html$", re.IGNORECASE)
-    links = await page.query_selector_all("a[href]")
-    chapters = []
-    seen = set()
-    for link in links:
-        href = await link.get_attribute("href")
-        text = (await link.inner_text()).strip()
-        if not href:
-            continue
-        # Resolve relative URLs
-        full_url = urllib.parse.urljoin(BASE_URL + "/", href.lstrip("/"))
-        m = pattern.search(href)
-        if m and full_url not in seen:
-            seen.add(full_url)
-            chapters.append({
-                "url": full_url,
-                "number": int(m.group(1)),
-                "title": text or f"Chapter {m.group(1)}",
-            })
-    chapters.sort(key=lambda c: c["number"])
-    log.info("Found %d chapters in Vol %s", len(chapters), volume)
+    feynmanlectures.caltech.edu uses predictable URLs: {BASE}/{VOL}_{NN}.html
+    Vol I: 52 chapters, Vol II: 42, Vol III: 21.
+    """
+    count = VOLUME_CHAPTERS.get(volume, 0)
+    chapters = [
+        {
+            "url": f"{BASE_URL}/{volume}_{n:02d}.html",
+            "number": n,
+            "title": f"Chapter {n}",
+        }
+        for n in range(1, count + 1)
+    ]
+    log.info("Vol %s: %d chapters (pre-built URL list)", volume, len(chapters))
     return chapters
 
 
@@ -208,7 +192,7 @@ async def run_crawler(config: dict):
                 log.error("ACTION NEEDED: Check Cloudflare status or switch to manual download.")
                 break
 
-            chapters = await crawl_toc(page, volume)
+            chapters = get_chapter_list(volume)
             pending = [c for c in chapters if c["url"] not in crawled_urls]
             log.info("Vol %s: %d/%d chapters to crawl", volume, len(pending), len(chapters))
 
