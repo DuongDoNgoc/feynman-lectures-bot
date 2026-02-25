@@ -1,0 +1,59 @@
+telegram:
+  bot_token: "${TELEGRAM_BOT_TOKEN}"
+  chat_id: "${TELEGRAM_CHAT_ID}"
+
+schedule:
+  timezone: "Asia/Bangkok"
+  times: ["07:20", "12:15", "18:30"]
+  lesson_types: ["concept", "deep_dive", "quiz"]
+  review_days: ["thu", "sun"]  # Thursday + Sunday = weekly quiz compilation
+
+database:
+  path: "data/feynman.db"
+
+crawler:
+  volumes: ["I", "II"]
+  daily_limit: 10          # max pages/day to avoid Cloudflare
+  circuit_breaker: 20      # break after N consecutive failures
+  request_delay_min: 1.0
+  request_delay_max: 3.0
+  max_retries: 3
+  retry_base_delay: 5
+  retry_max_delay: 30
+
+# LLM for bulk content enhancement (offline pipeline)
+enhancement:
+  provider: "anthropic"    # anthropic | deepseek | openai
+  model: "claude-haiku-4-5-20251001"
+  api_key: "${ANTHROPIC_API_KEY}"
+  base_url: null           # null = default Anthropic endpoint
+  temperature: 0.7
+  max_tokens: 2048
+  request_delay: 1.0       # seconds between calls
+
+# LLM for interactive Q&A (real-time bot responses)
+qa:
+  provider: "deepseek"
+  model: "deepseek-chat"
+  api_key: "${DEEPSEEK_API_KEY}"
+  base_url: "https://api.deepseek.com"
+  temperature: 0.7
+  max_tokens: 1024
+  history_limit: 10        # conversation messages to include as context
+
+user:
+  role: "mechatronics engineer"
+  language: "vi-en"        # mixed Vietnamese + English physics terms
+
+chunker:
+  target_words: 1000
+  tolerance: 0.2           # ±20% = 800-1200 word range
+  min_words: 500
+
+renderer:
+  dpi: 150
+  output_dir: "data/images"
+
+logging:
+  level: "INFO"
+  file: "data/feynman-bot.log"

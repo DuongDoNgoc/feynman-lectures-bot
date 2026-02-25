@@ -1,0 +1,9 @@
+playwright==1.49.0
+playwright-stealth==1.0.6
+beautifulsoup4==4.12.3
+aiosqlite==0.20.0
+openai==1.58.1
+python-telegram-bot[job-queue]==21.7
+pyyaml==6.0.2
+pytz==2024.2
+anthropic==0.42.0
