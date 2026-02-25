@@ -23,21 +23,22 @@ graph TB
 
     subgraph "External APIs"
         J[Anthropic Claude]
-        K[DeepSeek Chat]
-        L[Telegram API]
+        K[Claude Code CLI]
+        L[DeepSeek Chat]
+        M[Telegram API]
     end
 
     A --> F
     B --> F
     C --> F
     D --> F
-    D --> J
+    D --> K
     E --> F
     E --> G
 
     H --> F
-    H --> K
     H --> L
+    H --> M
     I --> H
     I --> F
 
@@ -76,7 +77,7 @@ flowchart LR
 | **Crawl** | Feynman website | `chapters` table | `src/crawler/scraper.py` |
 | **Parse** | `chapters.raw_html` | `sections` table | `src/crawler/parser.py` |
 | **Chunk** | `sections` rows | `lessons` stubs | `src/content/chunker.py` |
-| **Enhance** | `lessons` (pending) | `lessons.content_enhanced` | `src/content/enhancer.py` |
+| **Enhance** | `lessons` (pending) | `lessons.content_enhanced` | `src/content/enhancer.py` + Claude Code |
 | **Render** | LaTeX formulas | `lessons.math_images_json` | `src/renderer/math_renderer.py` |
 
 ### 2. Telegram Bot (Runtime)
@@ -165,8 +166,12 @@ flowchart LR
     end
 
     subgraph "Stage 4: Enhance"
-        D1[lessons pending] --> D2[LLM Provider]
-        D2 --> D3[lessons enhanced]
+        D1[lessons pending] --> D2[generate_prompts]
+        D2 --> D3[pending_prompts.jsonl]
+        D3 --> D4[Claude Code Session]
+        D4 --> D5[enhanced_outputs.jsonl]
+        D5 --> D6[import_outputs]
+        D6 --> D7[lessons enhanced]
     end
 
     subgraph "Stage 5: Render"
@@ -318,11 +323,17 @@ graph TB
     A --> C[knowledge/db.py]
     B --> C
     B --> D[llm/provider.py]
+    B --> E[Claude Code CLI]
+
+    E --> F[enhanced_outputs.jsonl]
+    B --> F
 
     style A fill:#fff9c4
     style B fill:#fff9c4
     style C fill:#e1f5fe
     style D fill:#c8e6c9
+    style E fill:#ffcc80
+    style F fill:#b2dfdb
 ```
 
 ### Bot Module
@@ -500,6 +511,7 @@ graph TB
 
     subgraph "External APIs"
         ANTH[Anthropic API]
+        CLAUDE[Claude Code CLI]
         DEEP[DeepSeek API]
         TG[Telegram API]
     end
@@ -507,11 +519,13 @@ graph TB
     ENV -->|load_config| CONFIG
     CONFIG -->|${VAR} resolution| APP
     APP -->|API Key| ANTH
+    APP -->|Claude Code| CLAUDE
     APP -->|API Key| DEEP
     APP -->|Token| TG
 
     style ENV fill:#ffcdd2
     style ANTH fill:#fff9c4
+    style CLAUDE fill:#ffcc80
     style DEEP fill:#fff9c4
     style TG fill:#fff9c4
 ```

@@ -60,7 +60,7 @@ src/
 
 **Files**:
 - `chunker.py` (99 lines): Section to chunk conversion
-- `enhancer.py` (186 lines): LLM-powered lesson enhancement
+- `enhancer.py` (273 lines): Claude Code session workflow for enhancement
 
 **Key Functions**:
 
@@ -68,9 +68,17 @@ src/
 |------|----------|---------|
 | `chunker.py` | `run_chunker(config)` | Split sections into chunks |
 | `chunker.py` | `split_section_to_chunks()` | 800-1200 word splitting |
-| `enhancer.py` | `run_enhancer(config)` | Process pending lessons |
-| `enhancer.py` | `enhance_lesson()` | LLM transformation |
+| `enhancer.py` | `generate_prompts(config)` | Create pending_prompts.jsonl |
+| `enhancer.py` | `import_outputs(config)` | Import enhanced_outputs.jsonl |
+| `enhancer.py` | `run_enhancer(config, import_mode)` | Orchestrator |
+| `enhancer.py` | `_extract_title()` | Extract title from content |
 | `enhancer.py` | `_extract_quiz_json()` | Parse quiz answers |
+
+**Enhancement Workflow**:
+- **Step 1**: `generate_prompts()` writes `data/pending_prompts.jsonl`
+- **Step 2**: Claude Code processes prompts → `data/enhanced_outputs.jsonl`
+- **Step 3**: `import_outputs()` imports results into database
+- **Optional**: Set `ENHANCEMENT_PROVIDER=api` for direct API mode
 
 **Lesson Types**:
 - `concept`: ~800 words, intuitive intro with analogies
@@ -234,16 +242,17 @@ Scheduler → JobQueue → next_lesson → Delivery
 **Stages**: `crawl`, `parse`, `chunk`, `enhance`, `render`
 
 ```bash
-python pipeline.py                    # All stages
-python pipeline.py --stage crawl      # Single stage
-python pipeline.py --stage enhance    # Resume
+python pipeline.py                          # All stages
+python pipeline.py --stage crawl            # Single stage
+python pipeline.py --stage enhance          # Generate prompts
+python pipeline.py --stage enhance --import # Import results
 ```
 
 **Stage Functions**:
 - `run_crawler()`: `src/crawler/scraper.py`
 - `run_parser()`: `src/crawler/parser.py`
 - `run_chunker()`: `src/content/chunker.py`
-- `run_enhancer()`: `src/content/enhancer.py`
+- `run_enhancer()`: `src/content/enhancer.py` (with `--import` flag)
 - `run_renderer()`: `src/renderer/math_renderer.py`
 
 ### Bot Entry Point (`main.py`)
@@ -273,6 +282,7 @@ python main.py  # Start bot daemon
 - Status tracking per stage
 - `get_unparsed_chapters()`, `get_pending_lessons()`
 - No duplicate processing
+- Enhancement workflow supports resume via `_load_done_ids()`
 
 ### 3. Provider Abstraction
 - `LLMProvider` interface
@@ -303,6 +313,7 @@ python-telegram-bot[job-queue]==21.7
 pyyaml==6.0.2
 pytz==2024.2
 anthropic==0.42.0
+aiohttp==3.11.11
 ```
 
 ### System
@@ -320,6 +331,8 @@ anthropic==0.42.0
 | Logs | `data/feynman-bot.log` |
 | Raw images | `data/raw/images/{volume}_{chapter}/` |
 | Math images | `data/images/{md5_hash}.png` |
+| Pending prompts | `data/pending_prompts.jsonl` |
+| Enhanced outputs | `data/enhanced_outputs.jsonl` |
 | Config | `config.yaml` |
 | Environment | `.env` |
 

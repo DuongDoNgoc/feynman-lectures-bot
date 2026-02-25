@@ -34,8 +34,14 @@ Feynman Bot is an automated Telegram-based learning system that delivers persona
 - **FR2.1**: System shall parse HTML into structured sections by heading
 - **FR2.2**: System shall split sections into 800-1200 word chunks
 - **FR2.3**: System shall create 3 lesson types per chunk: concept, deep_dive, quiz
-- **FR2.4**: System shall enhance raw content using LLM with role-specific prompts
+- **FR2.4**: System shall enhance raw content using Claude Code session workflow with role-specific prompts
 - **FR2.5**: System shall render LaTeX formulas as PNG images
+
+**Enhancement Workflow**:
+- **FR2.4.1**: System shall generate prompts file (`pending_prompts.jsonl`) for pending lessons
+- **FR2.4.2**: System shall support Claude Code CLI processing of prompts to `enhanced_outputs.jsonl`
+- **FR2.4.3**: System shall import enhanced outputs into database via `--import` flag
+- **FR2.4.4**: System shall support optional direct API mode when `ENHANCEMENT_PROVIDER=api`
 
 #### FR3: Lesson Delivery
 - **FR3.1**: Bot shall deliver 3 lessons daily at configurable times
@@ -59,9 +65,10 @@ Feynman Bot is an automated Telegram-based learning system that delivers persona
 ### 2. Non-Functional Requirements
 
 #### NFR1: Performance
-- **NFR1.1**: Pipeline shall process 1 chapter in < 5 minutes (excluding LLM calls)
+- **NFR1.1**: Pipeline shall process 1 chapter in < 5 minutes (excluding enhancement)
 - **NFR1.2**: Bot shall respond to commands within 3 seconds
 - **NFR1.3**: System shall support concurrent access for 10+ users
+- **NFR1.4**: Enhancement workflow shall be resumable (skip already-processed lessons)
 
 #### NFR2: Reliability
 - **NFR2.1**: Pipeline shall be resumable (track completion status per stage)
@@ -89,7 +96,7 @@ Feynman Bot is an automated Telegram-based learning system that delivers persona
 - **TC1**: Python 3.12+ required
 - **TC2**: SQLite for data storage (no external database)
 - **TC3**: Telegram Bot API for messaging
-- **TC4**: Anthropic Claude Haiku for content enhancement
+- **TC4**: Claude Code CLI for content enhancement (primary), optional Anthropic API
 - **TC5**: DeepSeek Chat for interactive Q&A
 - **TC6**: LaTeX tools required (pdflatex, dvipng, poppler-utils)
 
@@ -135,10 +142,16 @@ Feynman Bot is an automated Telegram-based learning system that delivers persona
 #### Pipeline Stages
 
 ```bash
-python pipeline.py              # Run all stages
-python pipeline.py --stage crawl    # Single stage
-python pipeline.py --stage enhance  # Resume from checkpoint
+python pipeline.py                          # Run all stages
+python pipeline.py --stage crawl            # Single stage
+python pipeline.py --stage enhance          # Generate prompts
+python pipeline.py --stage enhance --import # Import results
 ```
+
+**Enhancement Workflow**:
+1. `python pipeline.py --stage enhance` → generates `data/pending_prompts.jsonl`
+2. Claude Code processes prompts → `data/enhanced_outputs.jsonl`
+3. `python pipeline.py --stage enhance --import` → imports to database
 
 ### 6. Acceptance Criteria
 
@@ -161,7 +174,8 @@ python pipeline.py --stage enhance  # Resume from checkpoint
 
 #### External Services
 - Telegram Bot API
-- Anthropic API (Claude Haiku)
+- Claude Code CLI (Anthropic)
+- Anthropic API (optional, for automated enhancement mode)
 - DeepSeek API
 
 #### Python Packages
@@ -175,6 +189,7 @@ python-telegram-bot[job-queue]==21.7
 pyyaml==6.0.2
 pytz==2024.2
 anthropic==0.42.0
+aiohttp==3.11.11
 ```
 
 #### System Tools

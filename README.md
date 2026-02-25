@@ -18,8 +18,9 @@ Automated Telegram-based physics learning system delivering personalized micro-l
 
 - Python 3.12+
 - Telegram Bot Token (from [@BotFather](https://t.me/botfather))
-- Anthropic API Key (for content enhancement)
+- Claude Code (Anthropic's Claude Code CLI for content enhancement)
 - DeepSeek API Key (for interactive Q&A)
+- Optional: Anthropic API Key for automated enhancement mode
 
 ### Installation
 
@@ -51,8 +52,10 @@ Required environment variables:
 ```bash
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_ID=your_telegram_chat_id
-ANTHROPIC_API_KEY=your_anthropic_key
 DEEPSEEK_API_KEY=your_deepseek_key
+# Optional (for automated API mode):
+ANTHROPIC_API_KEY=your_anthropic_key
+ENHANCEMENT_PROVIDER=api  # Set to 'api' for direct API calls
 ```
 
 ### Running the Pipeline
@@ -63,15 +66,42 @@ python pipeline.py
 
 # Run specific stage (for resuming)
 python pipeline.py --stage crawl
-python pipeline.py --stage enhance
+python pipeline.py --stage parse
+python pipeline.py --stage chunk
 ```
 
 Pipeline stages:
 1. **crawl**: Scrape Feynman Lectures website
 2. **parse**: Extract sections and LaTeX formulas
 3. **chunk**: Split into ~1000-word micro-lessons
-4. **enhance**: LLM-powered content transformation
+4. **enhance**: LLM-powered content transformation (see below)
 5. **render**: Convert LaTeX to PNG images
+
+### Enhancement Workflow
+
+The enhancement stage uses a **Claude Code session workflow** to avoid API costs:
+
+**Step 1: Generate prompts**
+```bash
+python pipeline.py --stage enhance
+# Creates data/pending_prompts.jsonl
+```
+
+**Step 2: Process with Claude Code**
+```
+In Claude Code CLI, run:
+"Process enhancement prompts in data/pending_prompts.jsonl
+and write results to data/enhanced_outputs.jsonl"
+```
+
+**Step 3: Import results**
+```bash
+python pipeline.py --stage enhance --import
+# Imports enhanced content into database
+```
+
+**Optional: Automated API Mode**
+Set `ENHANCEMENT_PROVIDER=api` in `.env` to use direct Anthropic API calls (requires `ANTHROPIC_API_KEY`).
 
 ### Starting the Bot
 
