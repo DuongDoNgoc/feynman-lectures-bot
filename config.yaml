@@ -24,11 +24,11 @@ crawler:
 # LLM for bulk content enhancement (offline pipeline)
 enhancement:
   provider: "anthropic"    # anthropic | deepseek | openai
-  model: "claude-haiku-4-5-20251001"
+  model: "claude-sonnet-4-6"
   api_key: "${ANTHROPIC_API_KEY}"
   base_url: null           # null = default Anthropic endpoint
   temperature: 0.7
-  max_tokens: 2048
+  max_tokens: 3500
   request_delay: 1.0       # seconds between calls
 
 # LLM for interactive Q&A (real-time bot responses)
@@ -42,7 +42,7 @@ qa:
   history_limit: 10        # conversation messages to include as context
 
 user:
-  role: "mechatronics engineer"
+  role: "I am a mechatronics engineer primarily working on the design of automation systems, military weapons, integrating advanced measurement equipment for applications that require high-precision control at the micrometer level"
   language: "vi-en"        # mixed Vietnamese + English physics terms
 
 chunker:
@@ -51,7 +51,7 @@ chunker:
   min_words: 500
 
 renderer:
-  dpi: 150
+  dpi: 200
   output_dir: "data/images"
 
 logging:

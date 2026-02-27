@@ -46,7 +46,25 @@ def _clean_formula(formula: str) -> str:
     return formula
 
 
-def render_latex_pdflatex(formula: str, output_dir: str, dpi: int = 150) -> str | None:
+MIN_PNG_SIZE = 80  # Telegram requires photos ≥ ~80px on each side
+
+
+def _ensure_min_size(png_path: str, min_px: int = MIN_PNG_SIZE) -> str:
+    """Upscale PNG in-place if either dimension is below min_px. Returns path."""
+    try:
+        from PIL import Image
+        img = Image.open(png_path)
+        w, h = img.size
+        if w < min_px or h < min_px:
+            scale = max(min_px / w, min_px / h)
+            img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+            img.save(png_path)
+    except Exception:
+        pass  # non-critical — image left as-is
+    return png_path
+
+
+def render_latex_pdflatex(formula: str, output_dir: str, dpi: int = 200) -> str | None:
     """Render formula to PNG using pdflatex → pdftoppm. Returns png_path or None."""
     formula_hash = _formula_hash(formula)
     png_path = os.path.join(output_dir, f"{formula_hash}.png")
@@ -67,7 +85,7 @@ def render_latex_pdflatex(formula: str, output_dir: str, dpi: int = 150) -> str 
         # pdflatex → .pdf
         result = subprocess.run(
             ["pdflatex", "-interaction=nonstopmode", "-output-directory", tmpdir, tex_file],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, encoding="latin-1", timeout=30,
         )
         if not os.path.exists(pdf_file):
             log.debug("pdflatex failed for formula %s: %s", formula_hash, result.stderr[-300:])
@@ -76,18 +94,18 @@ def render_latex_pdflatex(formula: str, output_dir: str, dpi: int = 150) -> str 
         # pdftoppm → .png
         result = subprocess.run(
             ["pdftoppm", "-png", "-singlefile", "-r", str(dpi), pdf_file, png_stem],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True, text=True, encoding="latin-1", timeout=15,
         )
         tmp_png = png_stem + ".png"
         if not os.path.exists(tmp_png):
             log.debug("pdftoppm failed for formula %s", formula_hash)
             return None
 
-        # Move to cache
+        # Move to cache and ensure minimum dimensions
         import shutil as sh
         sh.copy2(tmp_png, png_path)
 
-    return png_path
+    return _ensure_min_size(png_path)
 
 
 def render_latex_matplotlib(formula: str, output_dir: str, dpi: int = 150) -> str | None:
@@ -115,7 +133,7 @@ def render_latex_matplotlib(formula: str, output_dir: str, dpi: int = 150) -> st
         ax.axis("off")
         fig.savefig(png_path, dpi=dpi, bbox_inches="tight", pad_inches=0.1)
         plt.close(fig)
-        return png_path
+        return _ensure_min_size(png_path)
     except Exception as e:
         log.warning("matplotlib render failed: %s", e)
         return None

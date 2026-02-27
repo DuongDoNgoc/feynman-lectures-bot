@@ -13,9 +13,11 @@ Commands:
 
 Text messages (non-command) → free-form Q&A via DeepSeek
 """
+import hashlib
 import json
 import logging
 import os
+import re
 
 from telegram import (
     CallbackQuery,
@@ -31,6 +33,15 @@ from src.knowledge import db
 from src.knowledge.models import Lesson
 
 log = logging.getLogger(__name__)
+
+# Formula extraction patterns — must match math_renderer.py:155-159 exactly
+# (cross-reference: src/renderer/math_renderer.py `render_lesson_math`)
+FORMULA_PATTERNS = [
+    (r"\$\$(.*?)\$\$", "$$"),
+    (r"\\\[(.*?)\\\]", r"\["),
+    (r"\$((?:[^$]|\\.)+?)\$", "$"),
+    (r"\\\((.*?)\\\)", r"\("),
+]
 
 # Injected at bot startup (see bot.py)
 _config: dict = {}
@@ -91,25 +102,143 @@ def split_message(text: str, max_len: int = 4096) -> list[str]:
     return parts
 
 
+def _formula_hash(formula: str) -> str:
+    """Same hash function as math_renderer._formula_hash."""
+    return hashlib.md5(formula.encode()).hexdigest()[:12]
+
+
+def _extract_formula_positions(content: str) -> list[dict]:
+    """Find all formulas with their text positions, sorted by position.
+
+    Deduplicates by formula text (first occurrence wins), matching renderer logic.
+    Returns list of dicts with keys: start, end, formula, hash, full_match.
+    """
+    seen_formulas: set[str] = set()
+    results = []
+
+    for pattern, _ in FORMULA_PATTERNS:
+        for m in re.finditer(pattern, content, re.DOTALL):
+            formula = m.group(1).strip()
+            if formula and len(formula) > 2 and formula not in seen_formulas:
+                seen_formulas.add(formula)
+                results.append({
+                    "start": m.start(),
+                    "end": m.end(),
+                    "formula": formula,
+                    "hash": _formula_hash(formula),
+                    "full_match": m.group(0),
+                })
+
+    results.sort(key=lambda x: x["start"])
+    return results
+
+
+def _build_interleaved_segments(content: str, img_paths: list[str]) -> list[dict]:
+    """Split content into ordered text/image segments.
+
+    Args:
+        content: lesson content_enhanced text
+        img_paths: PNG file paths from math_images_json (only existing files)
+
+    Returns:
+        list of {"type": "text", "content": str} or {"type": "image", "path": str}
+    """
+    # Build hash → path lookup from available PNGs (filename is "{hash}.png")
+    png_by_hash: dict[str, str] = {}
+    for p in img_paths:
+        basename = os.path.basename(p)
+        h = os.path.splitext(basename)[0]
+        png_by_hash[h] = p
+
+    formulas = _extract_formula_positions(content)
+    if not formulas:
+        return [{"type": "text", "content": content}]
+
+    segments = []
+    cursor = 0
+
+    for f in formulas:
+        text_before = content[cursor:f["start"]]
+        if text_before.strip():
+            segments.append({"type": "text", "content": text_before})
+
+        png_path = png_by_hash.get(f["hash"])
+        if png_path:
+            segments.append({"type": "image", "path": png_path})
+        else:
+            # No PNG available — keep formula text inline
+            segments.append({"type": "text", "content": f["full_match"]})
+
+        cursor = f["end"]
+
+    text_after = content[cursor:]
+    if text_after.strip():
+        segments.append({"type": "text", "content": text_after})
+
+    return segments
+
+
+def _coalesce_segments(segments: list[dict], min_text_len: int = 200) -> list[dict]:
+    """Merge consecutive text segments to reduce Telegram message count."""
+    if not segments:
+        return segments
+
+    result = []
+    text_buffer = ""
+
+    for seg in segments:
+        if seg["type"] == "text":
+            text_buffer += seg["content"]
+        else:
+            if text_buffer.strip():
+                result.append({"type": "text", "content": text_buffer})
+                text_buffer = ""
+            result.append(seg)
+
+    if text_buffer.strip():
+        result.append({"type": "text", "content": text_buffer})
+
+    # Second pass: merge consecutive short text segments
+    merged = []
+    for seg in result:
+        if (
+            seg["type"] == "text"
+            and merged
+            and merged[-1]["type"] == "text"
+            and len(merged[-1]["content"]) < min_text_len
+        ):
+            merged[-1]["content"] += seg["content"]
+        else:
+            merged.append(seg)
+
+    return merged
+
+
 async def send_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE, lesson: Lesson):
-    """Deliver lesson text (split if needed) + math images."""
+    """Deliver lesson with text and formula images interleaved inline."""
     chat_id = update.effective_chat.id
 
-    parts = split_message(lesson.content_enhanced)
-    for part in parts:
-        await context.bot.send_message(chat_id, part, parse_mode="HTML")
-
-    # Send rendered math images
+    img_paths = []
     if lesson.math_images_json:
-        for png_path in json.loads(lesson.math_images_json):
-            if os.path.exists(png_path):
+        img_paths = [p for p in json.loads(lesson.math_images_json) if os.path.exists(p)]
+
+    segments = _coalesce_segments(_build_interleaved_segments(lesson.content_enhanced, img_paths))
+
+    for seg in segments:
+        if seg["type"] == "text":
+            for part in split_message(seg["content"]):
                 try:
-                    await context.bot.send_photo(
-                        chat_id=chat_id,
-                        photo=InputFile(open(png_path, "rb")),
-                    )
-                except Exception as e:
-                    log.warning("Failed to send math image %s: %s", png_path, e)
+                    await context.bot.send_message(chat_id, part, parse_mode="Markdown")
+                except Exception:
+                    await context.bot.send_message(chat_id, part)
+        elif seg["type"] == "image":
+            try:
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=InputFile(open(seg["path"], "rb")),
+                )
+            except Exception as e:
+                log.warning("Failed to send math image %s: %s", seg["path"], e)
 
 
 async def send_quiz_questions(bot, chat_id: int, lesson: Lesson):

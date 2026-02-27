@@ -80,8 +80,12 @@ def _make_post_init(config: dict):
     return post_init
 
 
-async def run_bot(config: dict):
-    """Create app and start polling (blocks until stopped)."""
+def run_bot(config: dict):
+    """Create app and start polling (blocks until stopped).
+
+    PTB v20 run_polling() is a synchronous method that manages its own event
+    loop — it must NOT be awaited inside asyncio.run().
+    """
     app = create_app(config)
     log.info("Starting Telegram bot polling...")
-    await app.run_polling(drop_pending_updates=True)
+    app.run_polling(drop_pending_updates=True)

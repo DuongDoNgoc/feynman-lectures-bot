@@ -114,6 +114,20 @@ def _extract_title(content: str) -> str:
     return "Untitled"
 
 
+def _normalize_content(content: str) -> str:
+    """Fix common LLM heading artifacts.
+
+    Haiku sometimes outputs '# ## Title' (h1 + h2 prefix) instead of '## Title'.
+    Collapse repeated leading hashes on the first heading line to the innermost level.
+    """
+    lines = content.splitlines()
+    if lines:
+        # Replace any run of '#' followed by spaces + more '#' (e.g. '# ## ') with
+        # just the last hash group to preserve the intended heading level.
+        lines[0] = re.sub(r"^#+\s+(#+\s+)", r"\1", lines[0])
+    return "\n".join(lines)
+
+
 def _extract_quiz_json(content: str) -> str | None:
     m = re.search(r"```json\s*(\{.*?\})\s*```", content, re.DOTALL)
     if m:
