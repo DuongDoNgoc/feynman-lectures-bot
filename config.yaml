@@ -51,7 +51,7 @@ chunker:
   min_words: 500
 
 renderer:
-  dpi: 200
+  dpi: 1200
   output_dir: "data/images"
 
 logging:
