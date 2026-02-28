@@ -639,6 +639,20 @@ Accepts:
 
 ---
 
+## Table Rendering Subsystem
+
+**See**: [Table Rendering Feature](./table-rendering.md)
+
+**Quick Summary**:
+- Detects markdown tables in lesson content via regex pattern (header | separator | rows)
+- Converts markdown tables to LaTeX tabular environment
+- Renders as PNG using xelatex with filename prefix `tbl_`
+- Stores in unified `math_images_json` block dictionary with `type: "table"`
+- MD5-based caching; cap: 20 tables per lesson
+- Interleaved delivery via handlers (no special code needed)
+
+---
+
 ## Error Handling Strategy
 
 ### Circuit Breaker Pattern (Crawler)

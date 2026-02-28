@@ -362,9 +362,8 @@ In `config.yaml`:
 renderer:
   output_dir: data/images/
   dpi: 1200
-  max_blocks_per_lesson: 50
-  group_max_gap: 300
-  cache_enabled: true
+  max_blocks_per_lesson: 50       # Cap on formula groups
+  group_max_gap: 300              # Char distance for grouping formulas
 ```
 
 ### Filename Convention
@@ -374,6 +373,20 @@ renderer:
 
 - **Combined block**: `cb_{md5(block_text)}.png`
   - Example: `cb_x9y8z7w6v5u4t3.png`
+
+- **Table**: `tbl_{md5(table_text)}.png`
+  - Example: `tbl_m9n8o7p6q5r4s3.png`
+
+### Table Rendering
+
+**See**: [Table Rendering Feature](./table-rendering.md)
+
+**Quick Implementation**:
+- Tables detected via `_extract_table_positions()` using regex pattern
+- Markdown → LaTeX conversion via `_markdown_table_to_latex()`
+- PNG rendering via `render_table()` using xelatex
+- Block dictionary format: `{type: "table", path: "tbl_*.png", start, end}`
+- Backfill script: `python scripts/backfill-tables.py`
 
 ---
 

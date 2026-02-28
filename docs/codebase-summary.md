@@ -198,32 +198,41 @@ src/
 
 ### 6. Renderer Module (`src/renderer/`)
 
-**Purpose**: LaTeX to PNG conversion with grouped block rendering
+**Purpose**: LaTeX formula and markdown table to PNG conversion with grouped block rendering
 
 **Files**:
-- `math_renderer.py` (217 lines): Formula rendering pipeline ⚠️ exceeds 200-line guideline
+- `math_renderer.py` (517 lines): Formula + table rendering pipeline
 
 **Key Functions**:
 
 | Function | Purpose |
 |----------|---------|
 | `run_renderer(config)` | Process all pending lessons |
-| `render_lesson_math()` | Route to pdflatex or xelatex per lesson |
-| `render_latex_pdflatex()` | Single formula (fast) |
-| `render_combined_block()` | Combined blocks (xelatex, UTF-8, fontspec) |
+| `render_lesson_math()` | Extract & render formulas + tables; return mixed block list |
+| `render_latex_pdflatex()` | Single formula → PNG (fast) |
+| `render_combined_block()` | Combined formula blocks → PNG (xelatex, UTF-8, fontspec) |
+| `render_table()` | Markdown table → LaTeX tabular → PNG |
+| `_markdown_table_to_latex()` | Convert markdown table to LaTeX tabular |
+| `_extract_formula_positions()` | Find all formulas with char positions |
+| `_extract_table_positions()` | Find all markdown tables with char positions |
 | `_group_nearby_formulas()` | Group formulas within 300 chars |
 | `_is_real_latex()` | Filter false positives (plain text, single vars) |
 
 **Features**:
-- **Two-tier rendering**: Single (pdflatex) vs. Combined (xelatex+fontspec)
+- **Three-tier rendering**: Single formula (pdflatex) | Combined blocks (xelatex+fontspec) | Tables (xelatex+tabular)
 - **Grouped blocks**: Nearby formulas (<300 char gap) merged into xelatex minipage(12cm) images
-- **Block dictionary**: `math_images_json` stores `{type, path, start, end}` for each block
-- **Filename convention**: Single: `{md5_hash}.png`, Combined: `cb_{md5_hash}.png`
-- **MD5-based caching**: Same formula re-rendered instantly from cache
-- **Block cap**: Max 50 combined blocks per lesson
-- **DPI**: Configurable 1200 (from config.yaml) for high-quality LaTeX
+- **Table rendering**: Markdown tables converted to LaTeX tabular, rendered as PNG with `tbl_` prefix
+- **Unified block dictionary**: `math_images_json` stores `{type, path, start, end}` for formulas AND tables
+- **Filename convention**:
+  - Single formula: `{md5_hash}.png`
+  - Combined block: `cb_{md5_hash}.png`
+  - Table: `tbl_{md5_hash}.png`
+- **MD5-based caching**: Same formula/table re-rendered instantly from cache
+- **Block caps**: Max 50 formula groups + 20 tables per lesson
+- **DPI**: Configurable 1200 (from config.yaml) for high-quality output
 - **Async-safe via executor**: Blocking LaTeX commands run in thread pool
-- **DejaVu Serif font**: UTF-8 Vietnamese support in combined blocks via fontspec
+- **DejaVu Serif font**: UTF-8 Vietnamese support in combined blocks + tables via fontspec
+- **Interleaved delivery**: Handlers generically handle `type: "table"` blocks (no special code needed)
 
 ### 7. Utils (`src/utils.py`)
 
