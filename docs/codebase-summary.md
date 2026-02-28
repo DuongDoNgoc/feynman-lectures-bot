@@ -61,6 +61,7 @@ src/
 **Files**:
 - `chunker.py` (98 lines): Section to chunk conversion
 - `enhancer.py` (286 lines): Claude Code session workflow for enhancement
+- `preview_exporter.py` (287 lines): Export lessons to markdown for review
 
 **Key Functions**:
 
@@ -73,6 +74,9 @@ src/
 | `enhancer.py` | `run_enhancer(config, import_mode)` | Orchestrator |
 | `enhancer.py` | `_extract_title()` | Extract title from content |
 | `enhancer.py` | `_extract_quiz_json()` | Parse quiz answers |
+| `preview_exporter.py` | `export_lesson(lesson_id)` | Export single lesson to markdown |
+| `preview_exporter.py` | `export_all_lessons()` | Export all completed lessons |
+| `preview_exporter.py` | `export_lessons_by_type(type)` | Export by lesson type |
 
 **Enhancement Workflow**:
 - **Step 1**: `generate_prompts()` writes `data/pending_prompts.jsonl`
@@ -120,6 +124,7 @@ src/
 **Files**:
 - `models.py` (90 lines): Dataclass definitions
 - `db.py` (473 lines): SQLite async operations
+- `preview_db.py` (153 lines): Preview workflow queries
 
 **Key Functions**:
 
@@ -131,11 +136,15 @@ src/
 | `db.py` | `get_progress_stats()` | Calculate completion/streak |
 | `db.py` | `get_conversation_history()` | Retrieve Q&A context |
 | `db.py` | `save_quiz_score()` | Record quiz results |
+| `preview_db.py` | `get_completed_lessons()` | Fetch all enhanced lessons |
+| `preview_db.py` | `get_lessons_by_approval_status(status)` | Filter by approval status |
+| `preview_db.py` | `update_approval_status(lesson_id, status)` | Mark approved/rejected |
+| `preview_db.py` | `bulk_update_approval_status(status)` | Batch update |
 
 **Database Schema**:
 - `chapters`: Raw HTML from website
 - `sections`: Parsed content with formulas
-- `lessons`: Enhanced content by type
+- `lessons`: Enhanced content by type (with approval_status: pending/approved/rejected)
 - `user_progress`: Tracking sent/read/scores
 - `conversation_history`: Q&A context
 - `scheduled_lessons`: Delivery queue
@@ -283,6 +292,21 @@ python main.py  # Start bot daemon
 4. Setup scheduler
 5. Start polling
 
+### Preview CLI Entry Point (`scripts/lesson-preview.py`)
+
+```bash
+python scripts/lesson-preview.py export          # Export all to markdown
+python scripts/lesson-preview.py export --id 5   # Export single lesson
+python scripts/lesson-preview.py list --status pending
+python scripts/lesson-preview.py approve --id 5
+python scripts/lesson-preview.py approve --all   # Bulk approve
+python scripts/lesson-preview.py reject --id 5 --reason "quality"
+python scripts/lesson-preview.py show --id 5
+python scripts/lesson-preview.py sync            # Re-export changed lessons
+```
+
+**Commands**: export, list, approve, reject, show, sync
+
 ---
 
 ## Key Patterns
@@ -348,6 +372,7 @@ aiohttp==3.11.11
 | Math images | `data/images/{md5_hash}.png` |
 | Pending prompts | `data/pending_prompts.jsonl` |
 | Enhanced outputs | `data/enhanced_outputs.jsonl` |
+| Lesson previews | `docs/lessons-preview/{id:04d}-{type}-{slug}.md` |
 | Config | `config.yaml` |
 | Environment | `.env` |
 
@@ -374,20 +399,18 @@ aiohttp==3.11.11
 ## Known Limitations
 
 1. **Single-user design**: Single `chat_id` in config
-2. **No manual review**: LLM output used directly
-3. **No backups**: No automated database backup
-4. **SQLite limits**: May bottleneck at high concurrency
-5. **Fixed schedule**: Review days hardcoded (Thu, Sun)
-6. **Large file size**: `handlers.py` (565 LOC) and `math_renderer.py` (217 LOC) exceed 200-line guideline
+2. **No backups**: No automated database backup
+3. **SQLite limits**: May bottleneck at high concurrency
+4. **Fixed schedule**: Review days hardcoded (Thu, Sun)
+5. **Large file size**: `handlers.py` (565 LOC) and `math_renderer.py` (217 LOC) exceed 200-line guideline
 
 ---
 
 ## Future Enhancements
 
 1. Multi-user support with per-user preferences
-2. Manual content review workflow
-3. Database backup automation
-4. PostgreSQL migration option
-5. Configurable review days
-6. Lesson feedback/rating system
-7. Alternative LLM providers (local models)
+2. Database backup automation
+3. PostgreSQL migration option
+4. Configurable review days
+5. Lesson feedback/rating system
+6. Alternative LLM providers (local models)

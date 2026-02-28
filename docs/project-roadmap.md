@@ -45,26 +45,32 @@
 
 **Tasks**:
 
-#### 2.1 Error Handling
+#### 2.0 Preview & Approval Workflow
+- [x] Lesson preview export to markdown
+- [x] CLI tool for approval workflow
+- [x] Approval status tracking (pending/approved/rejected)
+- [x] Bot delivery gating to approved lessons only
+
+#### 2.2 Error Handling
 - [x] Circuit breaker for crawler (20 failures)
 - [ ] Implement retry logic for LLM API failures
 - [x] Graceful degradation for renderer failures (pdflatex + matplotlib fallback)
 - [ ] User-friendly error messages for all failure modes
 - [ ] Error recovery procedures documentation
 
-#### 2.2 Testing
+#### 2.3 Testing
 - [ ] Unit tests for each module
 - [ ] Integration tests for pipeline stages
 - [ ] Bot handler tests with mocked Telegram API
 - [ ] Performance benchmarks for enhancement
 
-#### 2.3 Monitoring
+#### 2.4 Monitoring
 - [x] Structured logging with file + console output
 - [ ] Metrics collection (lessons sent, errors, response times)
 - [ ] Health check endpoint
 - [ ] Database connection monitoring
 
-#### 2.4 Documentation
+#### 2.5 Documentation
 - [x] README.md
 - [x] Project Overview & PDR
 - [x] Codebase Summary (updated 2026-02-27)
@@ -201,6 +207,10 @@
 3. **No Rate Limiting**
    - Risk: API abuse
    - Solution: Per-user rate limits on commands
+
+4. ~~Manual Content Review~~ ✅ RESOLVED
+   - Implemented preview CLI with approval workflow
+   - Bot now gates delivery to approved lessons only
 
 ### Medium Priority
 
@@ -356,3 +366,4 @@
 | Date | Version | Changes |
 |------|---------|---------|
 | 2025-02-25 | 1.0.0 | Initial roadmap document |
+| 2026-02-28 | 1.1.0 | Added preview & approval workflow; removed "no manual review" from technical debt |

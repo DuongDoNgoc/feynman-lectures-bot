@@ -10,6 +10,7 @@
 | Functions | `snake_case` | `get_next_lesson()` |
 | Constants | `UPPER_SNAKE_CASE` | `USER_AGENTS` |
 | Private functions | `_leading_underscore` | `_format_formulas()` |
+| Markdown files | `{id:04d}-{type}-{slug}.md` | `0001-concept-electromagnetism.md` |
 
 ---
 
@@ -225,6 +226,82 @@ async def command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
     ...
 ```
+
+---
+
+## CLI Tool Patterns
+
+### Argument Parsing
+
+Use `argparse` with subcommands for multi-function CLIs:
+
+```python
+parser = argparse.ArgumentParser(description="Tool description")
+subparsers = parser.add_subparsers(dest="command", help="Command")
+
+# Add subcommands
+export_parser = subparsers.add_parser("export", help="Export function")
+export_parser.add_argument("--id", type=int, help="Specific item ID")
+export_parser.add_argument("--type", choices=["a", "b", "c"], help="Filter by type")
+
+args = parser.parse_args()
+```
+
+### Colored Terminal Output
+
+Use ANSI escape codes for status indication:
+
+```python
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+RED = "\033[91m"
+RESET = "\033[0m"
+
+print(f"{GREEN}Success:{RESET} Operation completed")
+print(f"{YELLOW}Warning:{RESET} Check output")
+print(f"{RED}Error:{RESET} Operation failed")
+```
+
+### Confirmation Prompts
+
+Require user confirmation for destructive bulk operations:
+
+```python
+if args.all:
+    if not args.yes:
+        print(f"{YELLOW}Warning:{RESET} This will affect {count} items.")
+        response = input("Continue? [y/N] ")
+        if response.lower() != "y":
+            print("Cancelled.")
+            return 1
+```
+
+---
+
+## Markdown File Conventions
+
+### Frontmatter Format
+
+YAML frontmatter for generated markdown files:
+
+```yaml
+---
+lesson_id: 1
+lesson_type: concept
+approval_status: pending
+exported_at: "2026-02-28T12:34:56+00:00"
+content_hash: "a1b2c3d4e5f6"
+chapter_number: 1
+chapter_title: "Atoms in Motion"
+---
+```
+
+### Filename Pattern
+
+For lesson preview exports:
+- Format: `{id:04d}-{type}-{slug}.md`
+- Example: `0001-concept-atoms-in-motion.md`
+- Slug: lowercase, hyphens, max 50 chars
 
 ---
 

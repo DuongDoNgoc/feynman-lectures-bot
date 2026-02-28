@@ -36,6 +36,9 @@ Feynman Bot is an automated Telegram-based learning system that delivers persona
 - **FR2.3**: System shall create 3 lesson types per chunk: concept, deep_dive, quiz
 - **FR2.4**: System shall enhance raw content using Claude Code session workflow with role-specific prompts
 - **FR2.5**: System shall render LaTeX formulas as PNG images
+- **FR2.6**: System shall support lesson preview workflow with approval status tracking
+- **FR2.7**: System shall export lessons to human-readable markdown format for review
+- **FR2.8**: Bot shall only deliver lessons with approved status
 
 **Enhancement Workflow**:
 - **FR2.4.1**: System shall generate prompts file (`pending_prompts.jsonl`) for pending lessons
@@ -111,7 +114,7 @@ Feynman Bot is an automated Telegram-based learning system that delivers persona
 - `id`, `chapter_id`, `number`, `title`, `content_text`, `latex_formulas[]`, `image_refs[]`
 
 **Lesson**: Enhanced content
-- `id`, `section_id`, `lesson_type`, `sequence`, `title`, `content_enhanced`, `quiz_json`, `math_images_json`, `enhancement_status`
+- `id`, `section_id`, `lesson_type`, `sequence`, `title`, `content_enhanced`, `quiz_json`, `math_images_json`, `enhancement_status`, `approval_status`
 
 **UserProgress**: Tracking
 - `id`, `user_id`, `lesson_id`, `sent_at`, `read_at`, `quiz_score`
@@ -138,6 +141,19 @@ Feynman Bot is an automated Telegram-based learning system that delivers persona
 | `/role` | [description] | View or update user role |
 | `/search` | keyword | Top 5 matching lessons |
 | `/help` | None | Command reference |
+
+#### Preview CLI Commands
+
+| Command | Parameters | Purpose |
+|---------|-----------|---------|
+| `export` | [--id N] [--type TYPE] | Export lessons to markdown |
+| `list` | [--status STATUS] [--type TYPE] | List lessons with approval status |
+| `approve` | --id N | --all | Mark lesson(s) as approved |
+| `reject` | --id N | --all [--reason TEXT] | Mark lesson(s) as rejected |
+| `show` | --id N | Display lesson content with context |
+| `sync` | None | Re-export lessons where content changed |
+
+**Usage**: `python scripts/lesson-preview.py [command] [options]`
 
 #### Pipeline Stages
 
