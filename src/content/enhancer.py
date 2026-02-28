@@ -155,15 +155,30 @@ def _build_prompt(lesson: Lesson, role: str) -> str:
 
 # ─── Step 1: Generate prompts file ────────────────────────────────────────────
 
-async def generate_prompts(config: dict):
-    """Write pending lessons as prompts to data/pending_prompts.jsonl."""
+async def generate_prompts(config: dict, batch_size: int = 0):
+    """Write pending lessons as prompts to data/pending_prompts.jsonl.
+
+    Args:
+        batch_size: Max lessons to process. 0 means all pending.
+    """
     role = config["user"]["role"]
     os.makedirs("data", exist_ok=True)
+
+    # Clear stale files so each batch run is clean
+    for f in [PROMPTS_FILE, OUTPUTS_FILE]:
+        if os.path.exists(f):
+            os.remove(f)
+            log.info("Cleared stale file: %s", f)
 
     pending = await db.get_pending_lessons()
     if not pending:
         log.info("No pending lessons. Enhancement already complete.")
         return 0
+
+    # Apply batch limit
+    if batch_size > 0:
+        pending = pending[:batch_size]
+        log.info("Batch mode: processing %d of available lessons", len(pending))
 
     # Load already-output lesson IDs to skip
     done_ids = _load_done_ids()
@@ -264,11 +279,11 @@ async def import_outputs(config: dict):
 
 # ─── Orchestrator ─────────────────────────────────────────────────────────────
 
-async def run_enhancer(config: dict, import_mode: bool = False):
+async def run_enhancer(config: dict, import_mode: bool = False, batch_size: int = 0):
     if import_mode:
         await import_outputs(config)
     else:
-        await generate_prompts(config)
+        await generate_prompts(config, batch_size=batch_size)
 
 
 def _load_done_ids() -> set[str]:

@@ -271,15 +271,12 @@ async def get_pending_lessons() -> list[Lesson]:
 
 
 async def get_next_lesson(user_id: int) -> Optional[Lesson]:
-    """Next undelivered lesson for user (any type).
-
-    Only returns lessons with approval_status='approved'.
-    """
+    """Next undelivered approved lesson for user (any type)."""
     async with get_db() as conn:
         rows = await conn.execute_fetchall(
             """SELECT l.* FROM lessons l
                WHERE l.enhancement_status = 'completed'
-               AND (l.approval_status = 'approved' OR l.approval_status IS NULL)
+               AND l.approval_status = 'approved'
                AND NOT EXISTS (
                    SELECT 1 FROM user_progress p
                    WHERE p.user_id = ? AND p.lesson_id = l.id AND p.sent_at IS NOT NULL
@@ -292,15 +289,12 @@ async def get_next_lesson(user_id: int) -> Optional[Lesson]:
 
 
 async def get_next_lesson_by_type(user_id: int, lesson_type: str) -> Optional[Lesson]:
-    """Next undelivered lesson of specific type for user.
-
-    Only returns lessons with approval_status='approved'.
-    """
+    """Next undelivered approved lesson of specific type for user."""
     async with get_db() as conn:
         rows = await conn.execute_fetchall(
             """SELECT l.* FROM lessons l
                WHERE l.lesson_type = ? AND l.enhancement_status = 'completed'
-               AND (l.approval_status = 'approved' OR l.approval_status IS NULL)
+               AND l.approval_status = 'approved'
                AND NOT EXISTS (
                    SELECT 1 FROM user_progress p
                    WHERE p.user_id = ? AND p.lesson_id = l.id AND p.sent_at IS NOT NULL
@@ -310,6 +304,41 @@ async def get_next_lesson_by_type(user_id: int, lesson_type: str) -> Optional[Le
             (lesson_type, user_id)
         )
         return _row_to_lesson(rows[0]) if rows else None
+
+
+async def get_enhanced_pending_review() -> list[Lesson]:
+    """Lessons enhanced but awaiting human approval."""
+    async with get_db() as conn:
+        rows = await conn.execute_fetchall(
+            """SELECT * FROM lessons
+               WHERE enhancement_status = 'completed'
+               AND approval_status = 'pending'
+               ORDER BY sequence, lesson_type"""
+        )
+        return [_row_to_lesson(r) for r in rows]
+
+
+async def set_approval_status(lesson_id: int, status: str):
+    """Set approval_status: 'approved' | 'rejected' | 'pending'."""
+    async with get_db() as conn:
+        await conn.execute(
+            "UPDATE lessons SET approval_status = ? WHERE id = ?",
+            (status, lesson_id)
+        )
+        await conn.commit()
+
+
+async def get_approved_lessons_needing_render() -> list[Lesson]:
+    """Approved lessons without rendered math images."""
+    async with get_db() as conn:
+        rows = await conn.execute_fetchall(
+            """SELECT * FROM lessons
+               WHERE approval_status = 'approved'
+               AND enhancement_status = 'completed'
+               AND (math_images_json IS NULL OR math_images_json = '[]' OR math_images_json = '')
+               ORDER BY sequence"""
+        )
+        return [_row_to_lesson(r) for r in rows]
 
 
 async def get_current_lesson(user_id: int) -> Optional[Lesson]:

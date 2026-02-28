@@ -5,12 +5,15 @@ Stages (run in order):
   parse   - extract sections + LaTeX from raw HTML
   chunk   - split sections into ~1000-word micro-lessons
   enhance - rewrite with LLM into concept/deep_dive/quiz lessons
-  render  - convert LaTeX formulas to PNG images
+  render  - convert LaTeX formulas to PNG images (approved lessons only)
+  preview - export enhanced lessons to markdown for human review
 
 Usage:
-  python pipeline.py                    # run all stages
-  python pipeline.py --stage crawl      # single stage
-  python pipeline.py --stage enhance    # resume enhancement from last checkpoint
+  python pipeline.py                         # run all stages
+  python pipeline.py --stage crawl           # single stage
+  python pipeline.py --stage enhance --batch 10  # enhance 10 lessons
+  python pipeline.py --stage enhance --import    # import Claude outputs
+  python pipeline.py --stage preview         # export for review
 """
 import argparse
 import asyncio
@@ -21,10 +24,10 @@ from src.utils import load_config, setup_logging, validate_config
 
 log = logging.getLogger(__name__)
 
-STAGES = ["crawl", "parse", "chunk", "enhance", "render"]
+STAGES = ["crawl", "parse", "chunk", "enhance", "render", "preview"]
 
 
-async def run_pipeline(config: dict, stages: list[str]):
+async def run_pipeline(config: dict, stages: list[str], import_mode: bool = False, batch_size: int = 0):
     await init_db(config)
 
     if "crawl" in stages:
@@ -45,13 +48,17 @@ async def run_pipeline(config: dict, stages: list[str]):
     if "enhance" in stages:
         log.info("=== Stage: enhance ===")
         from src.content.enhancer import run_enhancer
-        import_mode = getattr(run_pipeline, "_import_mode", False)
-        await run_enhancer(config, import_mode=import_mode)
+        await run_enhancer(config, import_mode=import_mode, batch_size=batch_size)
 
     if "render" in stages:
         log.info("=== Stage: render ===")
         from src.renderer.math_renderer import run_renderer
         await run_renderer(config)
+
+    if "preview" in stages:
+        log.info("=== Stage: preview ===")
+        from src.content.preview_exporter import export_all_lessons
+        await export_all_lessons()
 
     log.info("Pipeline complete.")
 
@@ -65,16 +72,16 @@ def main():
     parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
     parser.add_argument("--import", dest="import_mode", action="store_true",
                         help="Import enhanced_outputs.jsonl into DB (use with --stage enhance)")
+    parser.add_argument("--batch", type=int, default=0,
+                        help="Limit enhance stage to N lessons per run (0=all)")
     args = parser.parse_args()
 
     config = load_config(args.config)
     setup_logging(config)
 
-    # Pipeline doesn't require Telegram credentials
     stages = [args.stage] if args.stage else STAGES
-    run_pipeline._import_mode = args.import_mode
     log.info("Running stages: %s", stages)
-    asyncio.run(run_pipeline(config, stages))
+    asyncio.run(run_pipeline(config, stages, import_mode=args.import_mode, batch_size=args.batch))
 
 
 if __name__ == "__main__":

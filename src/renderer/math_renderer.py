@@ -182,23 +182,9 @@ async def run_renderer(config: dict):
     dpi = config["renderer"]["dpi"]
     os.makedirs(output_dir, exist_ok=True)
 
-    # Get all enhanced lessons
-    all_sections = await db.get_all_sections()
-    if not all_sections:
-        log.warning("No sections found. Run parse + enhance stages first.")
-        return
-
-    # Fetch completed lessons via pending check (inverted)
-    import aiosqlite
-    from src.knowledge.db import _db_path, _row_to_lesson
-
     rendered = 0
-    async with aiosqlite.connect(_db_path) as conn:
-        conn.row_factory = aiosqlite.Row
-        rows = await conn.execute_fetchall(
-            "SELECT * FROM lessons WHERE enhancement_status='completed' AND math_images_json IS NULL"
-        )
-        lessons = [_row_to_lesson(r) for r in rows]
+    # Only render approved lessons — avoids rendering content not yet human-reviewed
+    lessons = await db.get_approved_lessons_needing_render()
 
     log.info("Rendering math for %d lessons...", len(lessons))
 
