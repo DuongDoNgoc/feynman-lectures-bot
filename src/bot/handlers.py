@@ -13,6 +13,7 @@ Commands:
 
 Text messages (non-command) → free-form Q&A via DeepSeek
 """
+import asyncio
 import json
 import logging
 import os
@@ -29,6 +30,7 @@ from telegram.ext import ContextTypes
 
 from src.knowledge import db
 from src.knowledge.models import Lesson
+from src.llm.provider import LLMError, LLMRetryExhaustedError
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +43,37 @@ def init_handlers(config: dict, qa_llm):
     global _config, _qa_llm
     _config = config
     _qa_llm = qa_llm
+
+
+# ─── User-friendly error messages (Vietnamese) ─────────────────────────────────
+
+ERROR_MESSAGES = {
+    "llm_unavailable": (
+        "⚠️ <b>AI tạm thời không khả dụng</b>\n\n"
+        "Hệ thống AI đang gặp sự cố. Vui lòng thử lại sau vài phút.\n"
+        "Nếu lỗi tiếp tục, hãy dùng /start để khởi động lại bot."
+    ),
+    "llm_timeout": (
+        "⏱️ <b>AI phản hồi quá lâu</b>\n\n"
+        "Yêu cầu của bạn đã bị timeout. Vui lòng thử lại với câu hỏi ngắn hơn."
+    ),
+    "db_error": (
+        "🗄️ <b>Lỗi cơ sở dữ liệu</b>\n\n"
+        "Không thể truy cập dữ liệu. Vui lòng thử lại sau."
+    ),
+    "no_lesson": (
+        "📚 <b>Chưa có bài học</b>\n\n"
+        "Bạn chưa có bài học nào. Dùng /next để bắt đầu học."
+    ),
+    "no_quiz": (
+        "📝 <b>Không có quiz</b>\n\n"
+        "Chưa có câu hỏi quiz cho bài học hiện tại. Hãy hoàn thành thêm bài học."
+    ),
+    "generic_error": (
+        "⚠️ <b>Có lỗi xảy ra</b>\n\n"
+        "Vui lòng thử lại hoặc dùng /start để khởi động lại bot."
+    ),
+}
 
 
 # ─── Prompts for interactive Q&A ─────────────────────────────────────────────
@@ -260,7 +293,13 @@ async def next_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     await context.bot.send_chat_action(chat_id, ChatAction.TYPING)
 
-    lesson = await db.get_next_lesson(chat_id)
+    try:
+        lesson = await db.get_next_lesson(chat_id)
+    except Exception as e:
+        log.error("DB error in next_handler: %s", e)
+        await update.message.reply_text(ERROR_MESSAGES["db_error"], parse_mode="HTML")
+        return
+
     if not lesson:
         await update.message.reply_text(
             "🎉 Bạn đã hoàn thành tất cả bài học hiện có!\n"
@@ -268,8 +307,17 @@ async def next_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    await send_lesson(update, context, lesson)
-    await db.mark_sent(chat_id, lesson.id)
+    try:
+        await send_lesson(update, context, lesson)
+        await db.mark_sent(chat_id, lesson.id)
+    except Exception as e:
+        log.error("Failed to send lesson %d: %s", lesson.id, e)
+        await update.message.reply_text(
+            "⚠️ Không thể gửi bài học. Vui lòng thử lại sau.",
+            parse_mode="HTML"
+        )
+        return
+
     await update.message.reply_text(
         f"✅ Bài học đã giao: <b>{lesson.title}</b>\n"
         f"Loại: {lesson.lesson_type} | Chuỗi #{lesson.sequence + 1}",
@@ -279,15 +327,30 @@ async def next_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def quiz_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    lesson = await db.get_current_lesson(chat_id)
+
+    try:
+        lesson = await db.get_current_lesson(chat_id)
+    except Exception as e:
+        log.error("DB error in quiz_handler: %s", e)
+        await update.message.reply_text(ERROR_MESSAGES["db_error"], parse_mode="HTML")
+        return
+
     if not lesson:
-        await update.message.reply_text("Bạn chưa có bài học nào. Dùng /next để bắt đầu.")
+        await update.message.reply_text(ERROR_MESSAGES["no_lesson"], parse_mode="HTML")
         return
+
     # Get quiz lesson for current sequence
-    quiz_lesson = await db.get_next_lesson_by_type(chat_id, "quiz")
-    if not quiz_lesson:
-        await update.message.reply_text("Không tìm thấy bài quiz. Hãy hoàn thành thêm bài học.")
+    try:
+        quiz_lesson = await db.get_next_lesson_by_type(chat_id, "quiz")
+    except Exception as e:
+        log.error("DB error fetching quiz lesson: %s", e)
+        await update.message.reply_text(ERROR_MESSAGES["db_error"], parse_mode="HTML")
         return
+
+    if not quiz_lesson:
+        await update.message.reply_text(ERROR_MESSAGES["no_quiz"], parse_mode="HTML")
+        return
+
     await send_quiz_questions(context.bot, chat_id, quiz_lesson)
 
 
@@ -350,18 +413,38 @@ async def explain_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     await context.bot.send_chat_action(chat_id, ChatAction.TYPING)
 
-    lesson = await db.get_current_lesson(chat_id)
+    try:
+        lesson = await db.get_current_lesson(chat_id)
+    except Exception as e:
+        log.error("DB error in explain_handler: %s", e)
+        await update.message.reply_text(ERROR_MESSAGES["db_error"], parse_mode="HTML")
+        return
+
     if not lesson:
-        await update.message.reply_text("Chưa có bài học hiện tại. Dùng /next để bắt đầu.")
+        await update.message.reply_text(ERROR_MESSAGES["no_lesson"], parse_mode="HTML")
         return
 
     topic = " ".join(context.args) if context.args else "khái niệm chính"
     role = _config.get("user", {}).get("role", "engineer")
 
-    response = await _qa_llm.generate(
-        system_prompt=EXPLAIN_SYSTEM_PROMPT.format(role=role),
-        user_prompt=f"Giải thích chi tiết về '{topic}' từ bài học này:\n\n{lesson.content_enhanced[:2000]}",
-    )
+    try:
+        response = await _qa_llm.generate(
+            system_prompt=EXPLAIN_SYSTEM_PROMPT.format(role=role),
+            user_prompt=f"Giải thích chi tiết về '{topic}' từ bài học này:\n\n{lesson.content_enhanced[:2000]}",
+        )
+    except LLMRetryExhaustedError as e:
+        log.error("LLM retry exhausted in explain_handler: %s", e)
+        await update.message.reply_text(ERROR_MESSAGES["llm_unavailable"], parse_mode="HTML")
+        return
+    except LLMError as e:
+        log.error("LLM error in explain_handler: %s", e)
+        await update.message.reply_text(ERROR_MESSAGES["llm_unavailable"], parse_mode="HTML")
+        return
+    except asyncio.TimeoutError:
+        log.error("LLM timeout in explain_handler")
+        await update.message.reply_text(ERROR_MESSAGES["llm_timeout"], parse_mode="HTML")
+        return
+
     for part in split_message(response):
         await update.message.reply_text(part)
 
@@ -370,23 +453,51 @@ async def example_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     await context.bot.send_chat_action(chat_id, ChatAction.TYPING)
 
-    lesson = await db.get_current_lesson(chat_id)
+    try:
+        lesson = await db.get_current_lesson(chat_id)
+    except Exception as e:
+        log.error("DB error in example_handler: %s", e)
+        await update.message.reply_text(ERROR_MESSAGES["db_error"], parse_mode="HTML")
+        return
+
     if not lesson:
-        await update.message.reply_text("Chưa có bài học hiện tại. Dùng /next để bắt đầu.")
+        await update.message.reply_text(ERROR_MESSAGES["no_lesson"], parse_mode="HTML")
         return
 
     role = _config.get("user", {}).get("role", "engineer")
-    response = await _qa_llm.generate(
-        system_prompt=EXAMPLE_SYSTEM_PROMPT.format(role=role),
-        user_prompt=f"Tạo ví dụ thực tế cho {role} từ nội dung:\n\n{lesson.content_enhanced[:2000]}",
-    )
+
+    try:
+        response = await _qa_llm.generate(
+            system_prompt=EXAMPLE_SYSTEM_PROMPT.format(role=role),
+            user_prompt=f"Tạo ví dụ thực tế cho {role} từ nội dung:\n\n{lesson.content_enhanced[:2000]}",
+        )
+    except LLMRetryExhaustedError as e:
+        log.error("LLM retry exhausted in example_handler: %s", e)
+        await update.message.reply_text(ERROR_MESSAGES["llm_unavailable"], parse_mode="HTML")
+        return
+    except LLMError as e:
+        log.error("LLM error in example_handler: %s", e)
+        await update.message.reply_text(ERROR_MESSAGES["llm_unavailable"], parse_mode="HTML")
+        return
+    except asyncio.TimeoutError:
+        log.error("LLM timeout in example_handler")
+        await update.message.reply_text(ERROR_MESSAGES["llm_timeout"], parse_mode="HTML")
+        return
+
     for part in split_message(response):
         await update.message.reply_text(part)
 
 
 async def progress_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    stats = await db.get_progress_stats(chat_id)
+
+    try:
+        stats = await db.get_progress_stats(chat_id)
+    except Exception as e:
+        log.error("DB error in progress_handler: %s", e)
+        await update.message.reply_text(ERROR_MESSAGES["db_error"], parse_mode="HTML")
+        return
+
     pct = round(stats["completed"] / max(stats["total"], 1) * 100, 1)
     await update.message.reply_text(
         f"📊 <b>Tiến độ học tập</b>\n\n"
@@ -476,12 +587,25 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_chat_action(chat_id, ChatAction.TYPING)
 
-    lesson = await db.get_current_lesson(chat_id)
+    try:
+        lesson = await db.get_current_lesson(chat_id)
+    except Exception as e:
+        log.error("DB error fetching lesson in message_handler: %s", e)
+        await update.message.reply_text(ERROR_MESSAGES["db_error"], parse_mode="HTML")
+        return
+
     lesson_snippet = lesson.content_enhanced[:1500] if lesson else "Chưa có bài học"
     lesson_id = lesson.id if lesson else 0
 
-    history = await db.get_conversation_history(chat_id, lesson_id,
-                                                 limit=_config.get("qa", {}).get("history_limit", 10))
+    try:
+        history = await db.get_conversation_history(
+            chat_id, lesson_id,
+            limit=_config.get("qa", {}).get("history_limit", 10)
+        )
+    except Exception as e:
+        log.warning("Failed to fetch conversation history: %s", e)
+        history = []  # Continue without history
+
     role = _config.get("user", {}).get("role", "engineer")
 
     try:
@@ -490,17 +614,28 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_prompt=user_text,
             history=history,
         )
-    except Exception as e:
-        log.error("Q&A LLM error: %s", e)
-        await update.message.reply_text("⚠️ Xin lỗi, có lỗi xảy ra. Vui lòng thử lại sau.")
+    except LLMRetryExhaustedError as e:
+        log.error("LLM retry exhausted in message_handler: %s", e)
+        await update.message.reply_text(ERROR_MESSAGES["llm_unavailable"], parse_mode="HTML")
+        return
+    except LLMError as e:
+        log.error("LLM error in message_handler: %s", e)
+        await update.message.reply_text(ERROR_MESSAGES["llm_unavailable"], parse_mode="HTML")
+        return
+    except asyncio.TimeoutError:
+        log.error("LLM timeout in message_handler")
+        await update.message.reply_text(ERROR_MESSAGES["llm_timeout"], parse_mode="HTML")
         return
 
     for part in split_message(response):
         await update.message.reply_text(part)
 
-    # Persist conversation
-    await db.save_conversation(chat_id, lesson_id, "user", user_text)
-    await db.save_conversation(chat_id, lesson_id, "assistant", response)
+    # Persist conversation (best effort)
+    try:
+        await db.save_conversation(chat_id, lesson_id, "user", user_text)
+        await db.save_conversation(chat_id, lesson_id, "assistant", response)
+    except Exception as e:
+        log.warning("Failed to save conversation: %s", e)
 
 
 async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -521,8 +656,21 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    """Global error handler for unhandled exceptions."""
     log.error("Unhandled exception", exc_info=context.error)
+
+    # Check if error is LLM-related
+    error = context.error
+    if isinstance(error, (LLMError, LLMRetryExhaustedError)):
+        user_msg = ERROR_MESSAGES["llm_unavailable"]
+    elif isinstance(error, asyncio.TimeoutError):
+        user_msg = ERROR_MESSAGES["llm_timeout"]
+    else:
+        user_msg = ERROR_MESSAGES["generic_error"]
+
     if isinstance(update, Update) and update.effective_message:
-        await update.effective_message.reply_text(
-            "⚠️ Có lỗi xảy ra. Vui lòng thử lại hoặc dùng /start để khởi động lại."
-        )
+        try:
+            await update.effective_message.reply_text(user_msg, parse_mode="HTML")
+        except Exception:
+            # Last resort: send without HTML
+            await update.effective_message.reply_text(user_msg.replace("<b>", "").replace("</b>", ""))

@@ -75,10 +75,10 @@
 
 #### 2.2 Error Handling & Monitoring
 - [x] Circuit breaker for crawler (20 failures)
-- [ ] Implement retry logic for LLM API failures
+- [x] Implement retry logic for LLM API failures
 - [x] Graceful degradation for renderer failures (pdflatex + xelatex fallback)
-- [ ] User-friendly error messages for all failure modes
-- [ ] Error recovery procedures documentation
+- [x] User-friendly error messages for all failure modes
+- [x] Error recovery procedures documentation
 
 #### 2.3 Testing
 - [ ] Unit tests for each module
@@ -394,3 +394,4 @@
 | 2026-02-28 | 1.2.0 | **Parser fix**: Recursive h2/h3 detection (607 sections, 6.5/chapter avg). **Chunker update**: Semantic titles "ChN-M: Title — type" (843 total lessons, up from 282). Enhanced lesson count: 19/843 (~2.3%). |
 | 2026-02-28 | 1.3.0 | **Phase 2.1 Complete**: Rolling enhancement pipeline with --batch flag, review.py CLI for batch approval, renderer gated to approved-only lessons, bot delivery approval gate, daily-enhance.sh workflow script. Ready for daily 10-lesson rolling enhancement. |
 | 2026-02-28 | 1.4.0 | **Phase 2.1.1 + 2.1.2 Complete**: (1) Formula rendering system—single (pdflatex) vs. combined blocks (xelatex+fontspec), _group_nearby_formulas(max_gap=300), block dict {type,path,start,end}, MD5 cache with cb_ prefix, _is_real_latex() filter, 50-block cap, DPI=1200. (2) Source URL delivery—db.get_lesson_source_url() JOIN pattern, send_lesson() appends "📖 Nguồn: {url}". Documentation updated in system-architecture.md, code-standards.md, codebase-summary.md, project-roadmap.md. |
+| 2026-02-28 | 1.5.0 | **Phase 2.2 Complete**: Error handling & monitoring. (1) LLM retry logic—exponential backoff in LLMProvider, configurable max_retries/retry_base_delay/retry_max_delay, LLMError/LLMRetryExhaustedError exceptions. (2) User-friendly error messages—Vietnamese error dict for all failure modes (LLM unavailable, timeout, DB error, no lesson, no quiz). (3) Troubleshooting guide—docs/troubleshooting-guide.md with recovery procedures for bot, pipeline, LLM API, database, crawler, renderer errors. |

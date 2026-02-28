@@ -2,6 +2,11 @@
 
 Enhancement (offline pipeline): uses Anthropic SDK → claude-haiku-4-5
 Interactive Q&A (real-time bot): uses OpenAI-compat SDK → deepseek-chat
+
+Features:
+- Exponential backoff retry on transient failures
+- Configurable retry attempts and delays
+- Graceful error handling with specific error types
 """
 import asyncio
 import logging
@@ -10,6 +15,25 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
+# Error types that should trigger retry (transient/network errors)
+RETRYABLE_ERRORS = (
+    ConnectionError,
+    TimeoutError,
+    asyncio.TimeoutError,
+)
+
+
+class LLMError(Exception):
+    """Base exception for LLM operations."""
+    def __init__(self, message: str, original_error: Optional[Exception] = None):
+        super().__init__(message)
+        self.original_error = original_error
+
+
+class LLMRetryExhaustedError(LLMError):
+    """Raised when all retry attempts have failed."""
+    pass
+
 
 class LLMProvider:
     """Async LLM client. Selects backend from config['provider']."""
@@ -17,13 +41,19 @@ class LLMProvider:
     def __init__(self, cfg: dict):
         """
         cfg keys: provider, model, api_key, base_url (optional),
-                  temperature, max_tokens, request_delay
+                  temperature, max_tokens, request_delay,
+                  max_retries, retry_base_delay, retry_max_delay
         """
         self.provider: str = cfg["provider"]          # "anthropic" | "deepseek" | "openai"
         self.model: str = cfg["model"]
         self.temperature: float = cfg.get("temperature", 0.7)
         self.max_tokens: int = cfg.get("max_tokens", 2048)
         self.request_delay: float = cfg.get("request_delay", 1.0)
+
+        # Retry configuration
+        self.max_retries: int = cfg.get("max_retries", 3)
+        self.retry_base_delay: float = cfg.get("retry_base_delay", 2.0)
+        self.retry_max_delay: float = cfg.get("retry_max_delay", 30.0)
 
         api_key = cfg.get("api_key", "")
         # Resolve remaining ${VAR} placeholders (in case utils.load_config missed them)
@@ -46,11 +76,43 @@ class LLMProvider:
         user_prompt: str,
         history: Optional[list[dict]] = None,
     ) -> str:
-        """Generate a response. Returns text string."""
-        if self.provider == "anthropic":
-            return await self._anthropic_generate(system_prompt, user_prompt, history)
-        else:
-            return await self._openai_generate(system_prompt, user_prompt, history)
+        """Generate a response with retry logic. Returns text string.
+
+        Raises:
+            LLMRetryExhaustedError: When all retry attempts fail
+            LLMError: For non-retryable errors
+        """
+        last_error: Optional[Exception] = None
+
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                if self.provider == "anthropic":
+                    return await self._anthropic_generate(system_prompt, user_prompt, history)
+                else:
+                    return await self._openai_generate(system_prompt, user_prompt, history)
+            except RETRYABLE_ERRORS as e:
+                last_error = e
+                if attempt < self.max_retries:
+                    delay = min(self.retry_base_delay * (2 ** (attempt - 1)), self.retry_max_delay)
+                    log.warning(
+                        "LLM API attempt %d/%d failed (%s): %s. Retrying in %.1fs...",
+                        attempt, self.max_retries, self.provider, e, delay
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    log.error(
+                        "LLM API all %d attempts failed (%s): %s",
+                        self.max_retries, self.provider, e
+                    )
+            except Exception as e:
+                # Non-retryable error (auth, rate limit, etc.)
+                log.error("LLM API non-retryable error (%s): %s", self.provider, e)
+                raise LLMError(f"LLM API error: {e}", original_error=e) from e
+
+        raise LLMRetryExhaustedError(
+            f"All {self.max_retries} retry attempts failed for {self.provider}",
+            original_error=last_error
+        )
 
     # ─── Anthropic backend ───────────────────────────────────────────────────
 

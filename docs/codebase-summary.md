@@ -33,7 +33,7 @@ src/
 
 **Files**:
 - `bot.py` (91 lines): Application factory and bot runner
-- `handlers.py` (565 lines): Command/message handlers ⚠️ exceeds 200-line guideline
+- `handlers.py` (600+ lines): Command/message handlers with error handling ⚠️ exceeds 200-line guideline
 - `scheduler.py` (172 lines): JobQueue-based lesson scheduling
 
 **Key Functions**:
@@ -47,8 +47,16 @@ src/
 | `handlers.py` | `quiz_handler()` | Send interactive quiz |
 | `handlers.py` | `message_handler()` | Free-form Q&A |
 | `handlers.py` | `split_message()` | Split text for 4096-char limit |
+| `handlers.py` | `error_handler()` | Global exception handler |
 | `scheduler.py` | `setup_schedule()` | Configure daily delivery times |
 | `scheduler.py` | `catchup_missed_lessons()` | Resume missed deliveries |
+
+**Error Handling (2026-02-28)**:
+- `ERROR_MESSAGES` dict: Vietnamese user-friendly messages
+- All handlers wrapped in try/except
+- LLM-specific error handling (retry exhausted, timeout)
+- Database error recovery
+- Graceful degradation on failures
 
 **Commands Implemented**:
 - `/start`, `/next`, `/quiz`, `/explain`, `/example`
@@ -155,21 +163,37 @@ src/
 
 ### 5. LLM Module (`src/llm/`)
 
-**Purpose**: Unified interface for multiple LLM providers
+**Purpose**: Unified interface for multiple LLM providers with retry logic
 
 **Files**:
-- `provider.py` (130 lines): Anthropic/OpenAI-compatible client
+- `provider.py` (180 lines): Anthropic/OpenAI-compatible client with exponential backoff
 
 **Key Functions**:
 
 | Function | Purpose |
 |----------|---------|
-| `LLMProvider.generate()` | Async completion with history |
+| `LLMProvider.generate()` | Async completion with history + retry |
 | `build_enhancement_provider()` | Anthropic Claude for pipeline |
 | `build_qa_provider()` | DeepSeek for bot Q&A |
 
+**Error Classes**:
+| Class | Purpose |
+|-------|---------|
+| `LLMError` | Base exception for LLM operations |
+| `LLMRetryExhaustedError` | All retry attempts failed |
+
+**Retry Configuration** (config.yaml):
+- `max_retries`: Number of retry attempts (default: 3)
+- `retry_base_delay`: Initial delay in seconds (default: 2)
+- `retry_max_delay`: Maximum delay cap (default: 30)
+
+**Retry Behavior**:
+- Exponential backoff: `delay = min(base * 2^(attempt-1), max)`
+- Retries on: ConnectionError, TimeoutError
+- Non-retryable: Auth errors, rate limits
+
 **Providers**:
-- Enhancement: `claude-haiku-4-5-20251001`
+- Enhancement: `claude-sonnet-4-6`
 - Q&A: `deepseek-chat`
 
 ### 6. Renderer Module (`src/renderer/`)

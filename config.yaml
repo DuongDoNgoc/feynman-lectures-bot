@@ -30,6 +30,9 @@ enhancement:
   temperature: 0.7
   max_tokens: 3500
   request_delay: 1.0       # seconds between calls
+  max_retries: 3           # retry attempts on transient failures
+  retry_base_delay: 2      # initial retry delay in seconds
+  retry_max_delay: 30      # max retry delay cap
 
 # LLM for interactive Q&A (real-time bot responses)
 qa:
@@ -40,6 +43,9 @@ qa:
   temperature: 0.7
   max_tokens: 1024
   history_limit: 10        # conversation messages to include as context
+  max_retries: 2           # fewer retries for interactive (faster fail)
+  retry_base_delay: 1
+  retry_max_delay: 10
 
 user:
   role: "I am a mechatronics engineer primarily working on the design of automation systems, military weapons, integrating advanced measurement equipment for applications that require high-precision control at the micrometer level"
