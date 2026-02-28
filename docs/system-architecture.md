@@ -79,6 +79,8 @@ flowchart LR
 | **Chunk** | `sections` rows | `lessons` stubs | `src/content/chunker.py` |
 | **Enhance** | `lessons` (pending) | `lessons.content_enhanced` | `src/content/enhancer.py` + Claude Code |
 | **Render** | LaTeX formulas | `lessons.math_images_json` | `src/renderer/math_renderer.py` |
+| **Preview** | `lessons` (completed) | Markdown files | `scripts/lesson-preview.py` |
+| **Approve** | Human review | `lessons.approval_status` | `scripts/lesson-preview.py` |
 
 ### 2. Telegram Bot (Runtime)
 
@@ -179,10 +181,20 @@ flowchart LR
         E2 --> E3[PNG images]
     end
 
+    subgraph "Stage 6: Preview & Approve"
+        F1[lessons completed] --> F2[Export Markdown]
+        F2 --> F3[Human Review]
+        F3 --> F4{Approve?}
+        F4 -->|Yes| F5[approval_status = approved]
+        F4 -->|No| F6[approval_status = rejected]
+        F5 --> G1[Ready for Delivery]
+    end
+
     A3 --> B1
     B3 --> C1
     C3 --> D1
     D3 --> E1
+    D7 --> F1
 ```
 
 ### Bot Runtime Flow
@@ -263,6 +275,7 @@ erDiagram
         text quiz_json
         text math_images_json
         str enhancement_status
+        str approval_status
     }
 
     user_progress {
@@ -351,6 +364,61 @@ graph TB
     style C fill:#c8e6c9
     style D fill:#e1f5fe
     style E fill:#fff9c4
+```
+
+### Preview & Approval Module
+
+```mermaid
+graph TB
+    A[preview_db.py] --> B[preview_exporter.py]
+    A --> C[lesson-preview.py CLI]
+    B --> D[docs/lessons-preview/]
+    C --> A
+    C --> B
+
+    E[Bot Handlers] -->|gate delivery| F{approval_status}
+    F -->|approved| G[Deliver Lesson]
+    F -->|pending/rejected| H[Skip]
+
+    style A fill:#e1f5fe
+    style B fill:#fff9c4
+    style C fill:#c8e6c9
+    style D fill:#b2dfdb
+    style F fill:#ffcdd2
+    style G fill:#c8e6c9
+    style H fill:#ffcc80
+```
+
+**Purpose**: Human-in-the-loop quality control before Telegram delivery
+
+**Workflow**:
+1. Pipeline completes lesson → `approval_status = "pending"`
+2. `lesson-preview.py export` → Markdown files with YAML frontmatter
+3. Human review → `lesson-preview.py approve/reject`
+4. Bot handlers → Only deliver `approval_status = "approved"`
+5. Scheduled jobs → Skip non-approved lessons automatically
+
+**CLI Commands**:
+```bash
+python scripts/lesson-preview.py export              # Export all pending
+python scripts/lesson-preview.py list --status pending  # Review queue
+python scripts/lesson-preview.py show --id 5          # View content
+python scripts/lesson-preview.py approve --id 5       # Approve single
+python scripts/lesson-preview.py approve --all        # Bulk approve
+python scripts/lesson-preview.py sync                 # Re-export changed
+```
+
+**Markdown Frontmatter**:
+```yaml
+---
+lesson_id: 1
+lesson_type: concept
+approval_status: pending
+exported_at: "2026-02-28T02:03:03.895762+00:00"
+content_hash: 3746c5b3a27d
+chapter_number: 1
+section_number: 1
+---
 ```
 
 ---
