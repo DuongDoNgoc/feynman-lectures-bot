@@ -201,10 +201,11 @@ def _coalesce_segments(segments: list[dict], min_text_len: int = 200) -> list[di
     return merged
 
 
-async def send_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE, lesson: Lesson):
-    """Deliver lesson with text and formula images interleaved inline."""
-    chat_id = update.effective_chat.id
+async def send_lesson_to_chat(bot, chat_id: int, lesson: Lesson):
+    """Core delivery: send lesson with interleaved text/math/diagram images to a chat_id.
 
+    Used by both the /next command handler and the scheduler.
+    """
     blocks = []
     if lesson.math_images_json:
         raw = json.loads(lesson.math_images_json)
@@ -212,8 +213,7 @@ async def send_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE, lesson
         if raw and isinstance(raw[0], dict):
             blocks = raw
         else:
-            # Legacy: flat list of PNG paths — no position info, skip interleaving
-            blocks = []
+            blocks = []  # Legacy flat paths — no position info, skip interleaving
 
     segments = _coalesce_segments(_build_interleaved_segments(lesson.content_enhanced, blocks))
 
@@ -221,12 +221,12 @@ async def send_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE, lesson
         if seg["type"] == "text":
             for part in split_message(seg["content"]):
                 try:
-                    await context.bot.send_message(chat_id, part, parse_mode="Markdown")
+                    await bot.send_message(chat_id, part, parse_mode="Markdown")
                 except Exception:
-                    await context.bot.send_message(chat_id, part)
+                    await bot.send_message(chat_id, part)
         elif seg["type"] == "image":
             try:
-                await context.bot.send_photo(
+                await bot.send_photo(
                     chat_id=chat_id,
                     photo=InputFile(open(seg["path"], "rb")),
                 )
@@ -239,9 +239,9 @@ async def send_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE, lesson
             diagrams = json.loads(lesson.diagram_images_json)
             valid_diagrams = [p for p in diagrams if os.path.exists(p)]
             if valid_diagrams:
-                await context.bot.send_message(chat_id, "📐 *Hình minh họa:*", parse_mode="Markdown")
+                await bot.send_message(chat_id, "📐 *Hình minh họa:*", parse_mode="Markdown")
                 for path in valid_diagrams:
-                    await context.bot.send_photo(
+                    await bot.send_photo(
                         chat_id=chat_id,
                         photo=InputFile(open(path, "rb")),
                     )
@@ -251,7 +251,12 @@ async def send_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE, lesson
     # Append source URL
     source_url = await db.get_lesson_source_url(lesson.id)
     if source_url:
-        await context.bot.send_message(chat_id, f"📖 Nguồn: {source_url}")
+        await bot.send_message(chat_id, f"📖 Nguồn: {source_url}")
+
+
+async def send_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE, lesson: Lesson):
+    """Deliver lesson with text and formula images interleaved inline."""
+    await send_lesson_to_chat(context.bot, update.effective_chat.id, lesson)
 
 
 async def send_quiz_questions(bot, chat_id: int, lesson: Lesson):

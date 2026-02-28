@@ -4,9 +4,7 @@ Delivers 3 lessons/day at configured times (Asia/Bangkok default).
 Review days (Thu + Sun): generate weekly quiz compilation instead of new lessons.
 Missed lesson catch-up: on bot restart, immediately send any undelivered lessons.
 """
-import json
 import logging
-import os
 from datetime import time
 
 import pytz
@@ -85,33 +83,12 @@ async def deliver_lesson_callback(context):
         )
         return
 
-    await _send_lesson_content(context.bot, chat_id, lesson)
+    from src.bot.handlers import send_lesson_to_chat
+    await send_lesson_to_chat(context.bot, chat_id, lesson)
     await db.mark_sent(chat_id, lesson.id)
     await db.insert_scheduled_record(chat_id, lesson.id, lesson_type)
     log.info("Delivered %s lesson %d to chat %d", lesson_type, lesson.id, chat_id)
 
-
-async def _send_lesson_content(bot, chat_id: int, lesson: Lesson):
-    """Send lesson text + math images to chat."""
-    from telegram import InputFile
-    from src.bot.handlers import split_message
-
-    parts = split_message(lesson.content_enhanced)
-    for part in parts:
-        await bot.send_message(chat_id, part, parse_mode="HTML")
-
-    if lesson.math_images_json:
-        for png_path in json.loads(lesson.math_images_json):
-            if os.path.exists(png_path):
-                try:
-                    await bot.send_photo(chat_id, photo=InputFile(open(png_path, "rb")))
-                except Exception as e:
-                    log.warning("Failed sending math image %s: %s", png_path, e)
-
-    # Auto-send quiz questions if it's a quiz lesson
-    if lesson.lesson_type == "quiz" and lesson.quiz_json:
-        from src.bot.handlers import send_quiz_questions
-        await send_quiz_questions(bot, chat_id, lesson)
 
 
 async def _deliver_review_quiz(bot, chat_id: int, config: dict):
@@ -165,7 +142,8 @@ async def catchup_missed_lessons(app, config: dict):
             continue
         lesson = _row_to_lesson(rows[0])
         try:
-            await _send_lesson_content(app.bot, chat_id, lesson)
+            from src.bot.handlers import send_lesson_to_chat
+            await send_lesson_to_chat(app.bot, chat_id, lesson)
             await db.mark_scheduled_delivered(scheduled.id)
             log.info("Caught up: lesson %d (%s)", lesson.id, lesson.lesson_type)
         except Exception as e:
