@@ -1,7 +1,7 @@
 ---
 title: "Phase 02: CLI Review Tool"
 phase: 2
-status: pending
+status: completed
 effort: 1.5h
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: "Phase 03: Render Approved Lessons Only"
 phase: 3
-status: pending
+status: completed
 effort: 1h
 ---
 

@@ -45,13 +45,20 @@
 
 **Tasks**:
 
-#### 2.0 Preview & Approval Workflow
+#### 2.0 Preview & Approval Workflow ✅ COMPLETE
 - [x] Lesson preview export to markdown
-- [x] CLI tool for approval workflow
+- [x] CLI tool for approval workflow (review.py)
 - [x] Approval status tracking (pending/approved/rejected)
 - [x] Bot delivery gating to approved lessons only
 
-#### 2.2 Error Handling
+#### 2.1 Rolling Enhancement Pipeline ✅ COMPLETE
+- [x] Rolling enhancement pipeline with --batch flag
+- [x] Human review CLI (review.py approve-batch)
+- [x] Renderer gated to approved-only lessons
+- [x] Bot delivery gated to approved-only lessons
+- [x] daily-enhance.sh workflow script
+
+#### 2.2 Error Handling & Monitoring
 - [x] Circuit breaker for crawler (20 failures)
 - [ ] Implement retry logic for LLM API failures
 - [x] Graceful degradation for renderer failures (pdflatex + matplotlib fallback)
@@ -370,3 +377,4 @@
 | 2025-02-25 | 1.0.0 | Initial roadmap document |
 | 2026-02-28 | 1.1.0 | Added preview & approval workflow; removed "no manual review" from technical debt |
 | 2026-02-28 | 1.2.0 | **Parser fix**: Recursive h2/h3 detection (607 sections, 6.5/chapter avg). **Chunker update**: Semantic titles "ChN-M: Title — type" (843 total lessons, up from 282). Enhanced lesson count: 19/843 (~2.3%). |
+| 2026-02-28 | 1.3.0 | **Phase 2.1 Complete**: Rolling enhancement pipeline with --batch flag, review.py CLI for batch approval, renderer gated to approved-only lessons, bot delivery approval gate, daily-enhance.sh workflow script. Ready for daily 10-lesson rolling enhancement. |

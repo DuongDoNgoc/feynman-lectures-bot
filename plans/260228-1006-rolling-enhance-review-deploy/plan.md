@@ -1,7 +1,7 @@
 ---
 title: "Rolling Enhance → Review → Deploy Pipeline"
 description: "Daily 10-lesson enhancement with Claude Session, human review loop, render + deploy to Telegram without waiting for full batch"
-status: pending
+status: completed
 priority: P1
 effort: 8h
 branch: main
@@ -55,11 +55,11 @@ Daily Cycle:
 
 | Phase | Description | Effort | Status |
 |-------|-------------|--------|--------|
-| [Phase 01](phase-01-batch-enhance-script.md) | Add `--batch N` limit to enhance stage | 1h | pending |
-| [Phase 02](phase-02-review-cli.md) | CLI review tool: approve/reject from terminal | 1.5h | pending |
-| [Phase 03](phase-03-render-approved-only.md) | Render only approved lessons, mark render_status | 1h | pending |
-| [Phase 04](phase-04-bot-delivery-gate.md) | Bot delivers approved + rendered lessons only | 1h | pending |
-| [Phase 05](phase-05-daily-workflow-script.md) | `daily_enhance.sh` — one-command daily workflow | 0.5h | pending |
+| [Phase 01](phase-01-batch-enhance-script.md) | Add `--batch N` limit to enhance stage | 1h | completed |
+| [Phase 02](phase-02-review-cli.md) | CLI review tool: approve/reject from terminal | 1.5h | completed |
+| [Phase 03](phase-03-render-approved-only.md) | Render only approved lessons, mark render_status | 1h | completed |
+| [Phase 04](phase-04-bot-delivery-gate.md) | Bot delivers approved + rendered lessons only | 1h | completed |
+| [Phase 05](phase-05-daily-workflow-script.md) | `daily_enhance.sh` — one-command daily workflow | 0.5h | completed |
 
 **Total Effort**: 5 hours
 
