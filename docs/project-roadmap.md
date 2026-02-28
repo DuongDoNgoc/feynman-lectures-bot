@@ -39,7 +39,7 @@
 
 **Timeline**: Current focus (Started 2025-02, ongoing)
 **Priority**: HIGH
-**Current Progress**: Content enhancement in progress (19/564 lessons complete)
+**Current Progress**: Content enhancement in progress (19/843 lessons complete)
 
 **Goals**: Ensure reliability and maintainability
 
@@ -58,10 +58,25 @@
 - [x] Bot delivery gated to approved-only lessons
 - [x] daily-enhance.sh workflow script
 
+#### 2.1.1 Formula Rendering System ✅ COMPLETE
+- [x] Single formula rendering via pdflatex
+- [x] Combined block rendering via xelatex+fontspec (DejaVu Serif)
+- [x] Grouping logic (_group_nearby_formulas, max_gap=300)
+- [x] Block dictionary format ({type, path, start, end})
+- [x] MD5 caching with cb_ prefix for combined blocks
+- [x] Real LaTeX filter (_is_real_latex)
+- [x] 50-block per lesson cap
+- [x] DPI=1200 configuration
+
+#### 2.1.2 Source URL Delivery ✅ COMPLETE
+- [x] get_lesson_source_url() JOIN pattern in db.py
+- [x] send_lesson() appends "📖 Nguồn: {url}" as final message
+- [x] Users can click source link to full Feynman chapter
+
 #### 2.2 Error Handling & Monitoring
 - [x] Circuit breaker for crawler (20 failures)
 - [ ] Implement retry logic for LLM API failures
-- [x] Graceful degradation for renderer failures (pdflatex + matplotlib fallback)
+- [x] Graceful degradation for renderer failures (pdflatex + xelatex fallback)
 - [ ] User-friendly error messages for all failure modes
 - [ ] Error recovery procedures documentation
 
@@ -378,3 +393,4 @@
 | 2026-02-28 | 1.1.0 | Added preview & approval workflow; removed "no manual review" from technical debt |
 | 2026-02-28 | 1.2.0 | **Parser fix**: Recursive h2/h3 detection (607 sections, 6.5/chapter avg). **Chunker update**: Semantic titles "ChN-M: Title — type" (843 total lessons, up from 282). Enhanced lesson count: 19/843 (~2.3%). |
 | 2026-02-28 | 1.3.0 | **Phase 2.1 Complete**: Rolling enhancement pipeline with --batch flag, review.py CLI for batch approval, renderer gated to approved-only lessons, bot delivery approval gate, daily-enhance.sh workflow script. Ready for daily 10-lesson rolling enhancement. |
+| 2026-02-28 | 1.4.0 | **Phase 2.1.1 + 2.1.2 Complete**: (1) Formula rendering system—single (pdflatex) vs. combined blocks (xelatex+fontspec), _group_nearby_formulas(max_gap=300), block dict {type,path,start,end}, MD5 cache with cb_ prefix, _is_real_latex() filter, 50-block cap, DPI=1200. (2) Source URL delivery—db.get_lesson_source_url() JOIN pattern, send_lesson() appends "📖 Nguồn: {url}". Documentation updated in system-architecture.md, code-standards.md, codebase-summary.md, project-roadmap.md. |

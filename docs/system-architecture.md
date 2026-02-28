@@ -208,8 +208,13 @@ sequenceDiagram
 
     U->>B: /next command
     B->>DB: get_next_lesson(user_id)
-    DB-->>B: Lesson object
+    DB-->>B: Lesson object (approved only)
 
+    B->>DB: get_lesson_source_url(lesson_id)
+    DB-->>B: Source URL via JOIN
+
+    B->>B: _build_interleaved_segments()
+    B->>B: _coalesce_segments()
     B->>B: split_message(content)
     loop For each message part
         B->>U: send_message(part)
@@ -218,6 +223,8 @@ sequenceDiagram
     loop For each math image
         B->>U: send_photo(image.png)
     end
+
+    B->>U: send_message(📖 Nguồn: {source_url})
 
     B->>DB: mark_sent(user_id, lesson_id)
 
@@ -272,6 +279,8 @@ erDiagram
         int sequence
         str title
         text content_enhanced
+        text content_summary
+        text examples_json
         text quiz_json
         text math_images_json
         str enhancement_status
@@ -474,17 +483,159 @@ stateDiagram-v2
     Fetching --> Found: Lesson exists
     Fetching --> Skipped: No lesson available
 
-    Found --> Splitting: Check message length
+    Found --> BuildSegments: _build_interleaved_segments()
+    BuildSegments --> Coalesce: _coalesce_segments()
+    Coalesce --> Splitting: Check message length
     Splitting --> Sending: Within 4096 chars
     Splitting --> Splitting: Exceeds limit
 
     Sending --> SendingImages: Text sent
-    SendingImages --> Recording: All images sent
+    SendingImages --> SourceURL: Append source URL
+    SourceURL --> Recording: All images sent
     Recording --> Delivered: mark_sent()
     Delivered --> [*]
 
     Skipped --> [*]
 ```
+
+---
+
+## Formula Rendering Subsystem
+
+**Purpose**: Convert LaTeX formulas in lessons to PNG images for Telegram delivery
+
+**Architecture**: Two-tier rendering system optimized for quality and performance
+
+### Rendering Decision Tree
+
+| Condition | Renderer | Template | Speed | Quality |
+|-----------|----------|----------|-------|---------|
+| Single formula (1-5 in lesson) | pdflatex | Standard article | Fast | High |
+| Multiple nearby formulas (>5, <300 char gap) | xelatex + fontspec | minipage(12cm) block | Slower | High (UTF-8) |
+| Same formula appears multiple times | MD5 cache | N/A | Instant | N/A |
+
+### Single Formula Rendering
+
+```latex
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\pagestyle{empty}
+\begin{document}
+$<formula>$
+\end{document}
+```
+
+**Process**:
+1. Write temporary `.tex` file
+2. Run `pdflatex` → `.pdf`
+3. Run `pdftoppm` (poppler) → `.png` at configurable DPI
+
+### Combined Block Rendering
+
+**Trigger**: 2+ formulas within 300-character proximity
+
+**Template**:
+```latex
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{fontspec}
+\setmainfont{DejaVu Serif}
+\usepackage{amsmath,amssymb}
+\pagestyle{empty}
+\begin{document}
+\begin{minipage}{12cm}
+  $<formula_1>$
+
+  ... text/formula interleaving ...
+
+  $<formula_n>$
+\end{minipage}
+\end{document}
+```
+
+**Advantages**:
+- UTF-8 Vietnamese support via fontspec
+- Proper spacing and alignment for multiple formulas
+- Single image avoids Telegram spam
+- Reduced image count (max 50 blocks/lesson)
+
+### Block Dictionary Format
+
+Each rendered block stored in `math_images_json` as:
+
+```json
+[
+  {
+    "type": "single",
+    "path": "data/images/a1b2c3.png",
+    "start": 234,
+    "end": 250
+  },
+  {
+    "type": "combined",
+    "path": "data/images/cb_d4e5f6.png",
+    "start": 450,
+    "end": 800
+  }
+]
+```
+
+**Fields**:
+- `type`: `"single"` (pdflatex) or `"combined"` (xelatex)
+- `path`: Full path to PNG image
+- `start`, `end`: Character positions in original content (for segmentation during delivery)
+
+### Caching & Filename Convention
+
+**MD5 Hash Caching**: Formulas cached by MD5(formula_text) to avoid re-rendering
+
+**Filename Convention**:
+- Single formula: `{md5_hash}.png`
+- Combined block: `cb_{md5_hash}.png` (cb = combined block)
+
+**Cache Invalidation**: Delete `.png` files in `data/images/` if DPI config changes
+
+### Configuration
+
+In `config.yaml`:
+
+```yaml
+renderer:
+  output_dir: data/images/
+  dpi: 1200              # Resolution for PNG output
+  max_blocks_per_lesson: 50
+  group_max_gap: 300     # Characters to consider formulas "nearby"
+```
+
+### Grouping Logic
+
+Function: `_group_nearby_formulas(max_gap=300)`
+
+```
+Formula A at pos 0-20    } gap 50 chars
+Formula B at pos 70-90   } gap 200 chars
+Formula C at pos 290-310 ─ Combined into 1 block
+
+Formula D at pos 400-420 ─ Separate block (gap 90 > 300 threshold)
+Formula E at pos 510-530
+```
+
+### Real LaTeX Filter
+
+Function: `_is_real_latex(formula)`
+
+Rejects false positives:
+- Plain text (no operators)
+- Single variable: `$x$` → skip
+- Numbers only: `$123$` → skip
+- Common abbreviations (not LaTeX): `$P.S.$` → skip
+
+Accepts:
+- Math operators: `$E=mc^2$` ✓
+- Multi-variable: `$\alpha + \beta$` ✓
+- Greek letters: `$\Delta T$` ✓
+- Complex expressions: `$\int_0^\infty e^{-x} dx$` ✓
 
 ---
 
@@ -514,11 +665,13 @@ stateDiagram-v2
 
 ```mermaid
 flowchart TD
-    START[LaTeX Formula] --> TRY1[pdflatex]
+    START[LaTeX Formula] --> SINGLE{Single or Combined?}
+    SINGLE -->|Single| TRY1[pdflatex]
+    SINGLE -->|Combined Block| TRY2[xelatex + fontspec]
     TRY1 -->|Success| DONE[PNG Generated]
-    TRY1 -->|Failure| TRY2[matplotlib fallback]
+    TRY1 -->|Failure| SKIP[Skip, log warning]
     TRY2 -->|Success| DONE
-    TRY2 -->|Failure| SKIP[Skip formula, log warning]
+    TRY2 -->|Failure| SKIP
 
     style DONE fill:#c8e6c9
     style SKIP fill:#ffcdd2
@@ -634,26 +787,10 @@ graph LR
 
 ## Monitoring & Observability
 
-### Logging Strategy
+Logging via Python `logging` module → `data/feynman-bot.log` + stdout/stderr (systemd journalctl / Docker logs).
 
-```mermaid
-graph TB
-    APP[Application] --> LOG[logging module]
-
-    LOG --> FILE[data/feynman-bot.log]
-    LOG --> STREAM[stdout/stderr]
-
-    STREAM --> JOURNAL[systemd journalctl]
-    STREAM --> DOCKER[Docker logs]
-
-    style LOG fill:#fff9c4
-    style JOURNAL fill:#c8e6c9
-```
-
-### Log Levels by Component
-
-| Component | Levels Used | Examples |
-|-----------|-------------|----------|
+| Component | Levels | Examples |
+|-----------|--------|----------|
 | Crawler | INFO, WARNING, ERROR | Pages crawled, failures |
 | Parser | DEBUG, INFO | Sections extracted |
 | Enhancer | INFO, ERROR | Lessons enhanced |

@@ -189,6 +189,40 @@ await conn.execute("SELECT * FROM lessons WHERE id=?", (lesson_id,))
 await conn.execute(f"SELECT * FROM lessons WHERE id={lesson_id}")
 ```
 
+### Source URL Retrieval Pattern
+
+Pattern for fetching lesson source URL (requires JOIN from lessons → sections → chapters):
+
+```python
+async def get_lesson_source_url(lesson_id: int) -> Optional[str]:
+    """Fetch source URL for lesson via JOIN chain."""
+    query = """
+        SELECT c.url FROM lessons l
+        JOIN sections s ON l.section_id = s.id
+        JOIN chapters c ON s.chapter_id = c.id
+        WHERE l.id = ?
+    """
+    result = await conn.execute_fetchone(query, (lesson_id,))
+    return result[0] if result else None
+```
+
+### Approval Status Pattern
+
+Column `approval_status` in lessons table tracks content review status:
+
+```python
+# Values: "pending" (default) | "approved" | "rejected"
+await conn.execute(
+    "UPDATE lessons SET approval_status=? WHERE id=?",
+    ("approved", lesson_id)
+)
+
+# Gated delivery example
+lesson = await get_next_lesson(user_id)
+if lesson.approval_status == "approved":
+    await send_lesson(...)
+```
+
 ### Naming Conventions
 
 | Entity | Convention | Example |
@@ -196,6 +230,222 @@ await conn.execute(f"SELECT * FROM lessons WHERE id={lesson_id}")
 | Tables | `snake_case` | `user_progress` |
 | Columns | `snake_case` | `lesson_id` |
 | Indexes | `idx_{table}_{column}` | `idx_lessons_status` |
+
+---
+
+## Formula Rendering System
+
+### Single vs. Combined Rendering Decision
+
+```python
+def should_combine(formulas: List[str], max_gap: int = 300) -> bool:
+    """Decide whether to render as combined block or individual formulas."""
+    if len(formulas) < 2:
+        return False  # Single formula → pdflatex
+
+    # Check character distance between nearby formulas
+    for i in range(len(formulas) - 1):
+        gap = get_char_distance(formulas[i], formulas[i+1])
+        if gap <= max_gap:
+            return True  # Within grouping threshold → xelatex
+
+    return False  # Too far apart → individual pdflatex
+```
+
+### Rendering Function Signatures
+
+**Single Formula**:
+```python
+async def render_with_pdflatex(formula: str, dpi: int) -> str:
+    """Render single formula. Fast, high-quality. Returns PNG path."""
+    # 1. Hash formula: md5_hash = hashlib.md5(formula.encode()).hexdigest()
+    # 2. Check cache: if data/images/{md5_hash}.png exists, return path
+    # 3. Write .tex file → pdflatex → pdftoppm → PNG
+    # 4. Return path
+```
+
+**Combined Block**:
+```python
+async def render_with_xelatex(block_text: str, dpi: int) -> str:
+    """Render combined block with UTF-8 support (DejaVu Serif).
+
+    Returns PNG path with cb_ prefix (cb_abc123def456.png).
+    """
+    # 1. Hash: md5_hash = hashlib.md5(block_text.encode()).hexdigest()
+    # 2. Check cache: if data/images/cb_{md5_hash}.png exists, return
+    # 3. Build template with fontspec + minipage(12cm)
+    # 4. xelatex → PDF → pdftoppm → PNG
+    # 5. Return path
+```
+
+### xelatex Template Pattern
+
+```python
+XELATEX_TEMPLATE = r"""
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{fontspec}
+\setmainfont{DejaVu Serif}
+\usepackage{amsmath,amssymb,amsfonts}
+\pagestyle{empty}
+\usepackage[margin=0.5cm]{geometry}
+\begin{document}
+\begin{minipage}{12cm}
+{content}
+\end{minipage}
+\end{document}
+"""
+```
+
+### Block Dictionary Structure
+
+Store in `lessons.math_images_json` as JSON array:
+
+```python
+@dataclass
+class RenderBlock:
+    type: str  # "single" or "combined"
+    path: str  # "data/images/abc123.png" or "data/images/cb_abc123.png"
+    start: int  # Character position in original content
+    end: int    # Character position in original content
+```
+
+### Grouping Logic Implementation
+
+```python
+def _group_nearby_formulas(
+    formulas: List[Tuple[str, int, int]],
+    content: str,
+    max_gap: int = 300
+) -> List[List[int]]:
+    """Group nearby formulas into blocks.
+
+    Args:
+        formulas: List of (text, start, end) tuples
+        content: Original lesson content
+        max_gap: Max char distance to group (default 300)
+
+    Returns:
+        List of groups, each group is list of formula indices
+    """
+    # Iterate through formulas; if gap to next < max_gap, same group
+    # Otherwise, start new group
+```
+
+### Real LaTeX Filter Pattern
+
+```python
+def _is_real_latex(formula: str) -> bool:
+    """Filter out false positives (plain text, single var, etc)."""
+
+    # Reject: single variable, numbers, abbreviations
+    if formula in SINGLE_VAR_CACHE or formula.isdigit():
+        return False
+
+    # Reject: plain text without operators
+    latex_operators = {
+        r'\alpha', r'\beta', r'\int', r'\sum', r'\frac',
+        r'\sqrt', r'\sin', r'\cos', '^', '_', '=', '+'
+    }
+
+    if not any(op in formula for op in latex_operators):
+        return False
+
+    return True
+```
+
+### Configuration Keys
+
+In `config.yaml`:
+
+```yaml
+renderer:
+  output_dir: data/images/
+  dpi: 1200
+  max_blocks_per_lesson: 50
+  group_max_gap: 300
+  cache_enabled: true
+```
+
+### Filename Convention
+
+- **Single formula**: `{md5(formula)}.png`
+  - Example: `a1b2c3d4e5f6g7h8.png`
+
+- **Combined block**: `cb_{md5(block_text)}.png`
+  - Example: `cb_x9y8z7w6v5u4t3.png`
+
+---
+
+## Message Delivery Patterns
+
+### Interleaved Segments Pattern
+
+Function: `_build_interleaved_segments(lesson: Lesson) -> List[Union[str, ImagePath]]`
+
+Creates a list alternating text chunks and image paths based on `math_images_json`:
+
+```python
+# Input: lesson with content and math_images_json
+# Process:
+#   1. Parse math_images_json blocks with char positions
+#   2. Split content by block positions
+#   3. Create segments: [text_chunk_0, image_0, text_chunk_1, image_1, ...]
+# Output: List suitable for send_lesson() iteration
+```
+
+### Coalescing Segments
+
+Function: `_coalesce_segments(segments: List) -> List[Union[str, ImagePath]]`
+
+Merges adjacent text segments if combined length < 4096 chars (Telegram limit):
+
+```python
+# Input: [text_300, image, text_200, text_500, image]
+# Output: [text_300, image, text_700, image]  # Merged middle texts
+```
+
+### Message Splitting
+
+Function: `split_message(text: str, max_length: int = 4096) -> List[str]`
+
+Splits long text respecting Telegram limits:
+
+```python
+# Strategy: Paragraph-aware first
+# 1. Try split by \n\n (paragraph breaks)
+# 2. Fallback to \n (line breaks)
+# 3. Fallback to word boundaries
+# 4. Last resort: character split (with safety margin)
+```
+
+### Lesson Delivery with Source URL
+
+```python
+async def send_lesson(user_id: int, lesson: Lesson):
+    """Send lesson segments and append source URL."""
+
+    segments = _build_interleaved_segments(lesson)
+    segments = _coalesce_segments(segments)
+
+    for segment in segments:
+        if isinstance(segment, str):
+            parts = split_message(segment)
+            for part in parts:
+                await bot.send_message(chat_id=user_id, text=part)
+        else:  # ImagePath
+            await bot.send_photo(chat_id=user_id, photo=open(segment, 'rb'))
+
+    # Append source URL as final message
+    source_url = await db.get_lesson_source_url(lesson.id)
+    if source_url:
+        await bot.send_message(
+            chat_id=user_id,
+            text=f"📖 Nguồn: {source_url}"
+        )
+
+    await db.mark_sent(user_id, lesson.id)
+```
 
 ---
 
@@ -327,6 +577,19 @@ value = config.get("section", {}).get("key", default_value)
 # Required keys (raise if missing)
 token = config["telegram"]["bot_token"]
 ```
+
+### Renderer Configuration Keys
+
+```yaml
+renderer:
+  output_dir: data/images/          # Where PNG images stored
+  dpi: 1200                         # Resolution (1200 recommended)
+  max_blocks_per_lesson: 50         # Cap on combined blocks
+  group_max_gap: 300                # Char distance for grouping
+  cache_enabled: true               # MD5 cache toggle
+```
+
+**Cache Invalidation**: If you change `dpi`, delete all PNG files in `output_dir` before re-rendering. Cache uses MD5(formula), so higher DPI won't regenerate automatically.
 
 ---
 

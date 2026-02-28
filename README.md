@@ -2,18 +2,20 @@
 
 Automated Telegram-based physics learning system delivering personalized micro-lessons from Richard Feynman's "Lectures on Physics."
 
-**Project Status**: Production Ready (v1.0.0)
-**Last Updated**: 2026-02-27
+**Project Status**: Production Ready (v1.3.0)
+**Last Updated**: 2026-02-28
 
 ## Features
 
 - **Automated Content Pipeline**: 5-stage offline batch processing (crawl, parse, chunk, enhance, render)
-- **Smart Lesson Delivery**: 3 daily lessons at configurable times (concept, deep_dive, quiz)
+- **Smart Lesson Delivery**: 3 daily lessons at configurable times (concept, deep_dive, quiz) with source attribution
 - **AI-Powered Enhancement**: LLM-transformation of raw physics content into engaging lessons
 - **Interactive Q&A**: Real-time AI assistance with conversation history
 - **Progress Tracking**: Streak monitoring and completion statistics
 - **Vietnamese Language**: Localized content with English physics terminology
-- **LaTeX Rendering**: Automatic formula-to-image conversion
+- **Advanced Formula Rendering**: Single formula (pdflatex) and grouped blocks (xelatex+fontspec) with UTF-8 support
+- **Approval Workflow**: Human review gate with preview export and approval tracking before delivery
+- **Source Attribution**: Lessons link back to source Feynman Lectures chapters
 
 ## Quick Start
 

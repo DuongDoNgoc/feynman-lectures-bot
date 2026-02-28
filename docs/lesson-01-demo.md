@@ -1,3 +1,7 @@
+⚠️ **Legacy Example**: This lesson was generated before the grouped block formula rendering system (as of 2026-02-28). Formula output format may differ from current system which uses combined xelatex blocks with `{type, path, start, end}` structure. For current output format, see `docs/codebase-summary.md#formula-rendering-subsystem`.
+
+---
+
 ## Nguyên Tử Chuyển Động: Nền Tảng Của Mọi Vật Chất
 
 ### Câu Hỏi Mở Đầu

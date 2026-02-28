@@ -104,13 +104,13 @@ src/
 | File | Function | Purpose |
 |------|----------|---------|
 | `scraper.py` | `run_crawler(config)` | Main crawler orchestrator |
-| `scraper.py` | `crawl_toc()` | Extract chapter links |
+| `scraper.py` | `get_chapter_list()` | Extract chapter links |
 | `scraper.py` | `crawl_chapter()` | Fetch chapter HTML |
 | `scraper.py` | `download_images()` | Save referenced images |
 | `scraper.py` | `create_browser()` | Context manager with stealth |
 | `parser.py` | `run_parser(config)` | Parse all uncrawled chapters |
 | `parser.py` | `extract_sections()` | Recursive h2/h3 heading detection via `find_all()` |
-| `parser.py` | `extract_latex_formulas()` | Multi-method formula extraction |
+| `parser.py` | `extract_latex()` | Multi-method formula extraction |
 
 **Parser Fix (2026-02-28)**: Now uses `content.find_all(HEADING_TAGS)` recursive search instead of direct children iteration, detecting h2/h3 headings at any nesting depth. Results: 607 sections across 94 chapters (~6.5/chapter), up from 94 sections (1/chapter).
 
@@ -174,7 +174,7 @@ src/
 
 ### 6. Renderer Module (`src/renderer/`)
 
-**Purpose**: LaTeX to PNG conversion
+**Purpose**: LaTeX to PNG conversion with grouped block rendering
 
 **Files**:
 - `math_renderer.py` (217 lines): Formula rendering pipeline ⚠️ exceeds 200-line guideline
@@ -184,14 +184,22 @@ src/
 | Function | Purpose |
 |----------|---------|
 | `run_renderer(config)` | Process all pending lessons |
-| `render_latex_to_png()` | Convert formula to image |
-| `render_with_pdflatex()` | Primary method (high quality) |
-| `render_with_matplotlib()` | Fallback method |
+| `render_lesson_math()` | Route to pdflatex or xelatex per lesson |
+| `render_latex_pdflatex()` | Single formula (fast) |
+| `render_combined_block()` | Combined blocks (xelatex, UTF-8, fontspec) |
+| `_group_nearby_formulas()` | Group formulas within 300 chars |
+| `_is_real_latex()` | Filter false positives (plain text, single vars) |
 
 **Features**:
-- MD5-based caching
-- Async-safe via executor
-- Max 20 formulas per lesson
+- **Two-tier rendering**: Single (pdflatex) vs. Combined (xelatex+fontspec)
+- **Grouped blocks**: Nearby formulas (<300 char gap) merged into xelatex minipage(12cm) images
+- **Block dictionary**: `math_images_json` stores `{type, path, start, end}` for each block
+- **Filename convention**: Single: `{md5_hash}.png`, Combined: `cb_{md5_hash}.png`
+- **MD5-based caching**: Same formula re-rendered instantly from cache
+- **Block cap**: Max 50 combined blocks per lesson
+- **DPI**: Configurable 1200 (from config.yaml) for high-quality LaTeX
+- **Async-safe via executor**: Blocking LaTeX commands run in thread pool
+- **DejaVu Serif font**: UTF-8 Vietnamese support in combined blocks via fontspec
 
 ### 7. Utils (`src/utils.py`)
 
@@ -208,6 +216,75 @@ src/
 
 ---
 
+## Source URL Delivery Feature
+
+**Purpose**: Attribute content to source chapters on Feynman Lectures website
+
+**Implementation**: Added in handlers.py `send_lesson()` function
+
+**Workflow**:
+
+1. Bot retrieves next approved lesson
+2. Handler calls `db.get_lesson_source_url(lesson_id)` which:
+   - JOINs lessons → sections → chapters
+   - Returns `chapters.url` from source
+3. After delivering all lesson segments and images, appends:
+   ```
+   📖 Nguồn: https://www.feynmanlectures.caltech.edu/I_01.html
+   ```
+4. Users can click link to see full Feynman Lecture chapter
+
+**Database Pattern** (`src/knowledge/db.py`):
+
+```python
+async def get_lesson_source_url(lesson_id: int) -> Optional[str]:
+    """Fetch source URL via lessons→sections→chapters JOIN."""
+    query = """
+        SELECT c.url FROM lessons l
+        JOIN sections s ON l.section_id = s.id
+        JOIN chapters c ON s.chapter_id = c.id
+        WHERE l.id = ?
+    """
+    result = await conn.execute_fetchone(query, (lesson_id,))
+    return result[0] if result else None
+```
+
+---
+
+## Approval Workflow Feature
+
+**Purpose**: Human review gate before lesson delivery
+
+**Implementation**: Lessons tracked with `approval_status` column (pending | approved | rejected)
+
+**Flow**:
+
+1. **Stage 4 (Enhancement)** → All new lessons: `approval_status = "pending"`
+2. **Preview Export** (`scripts/lesson-preview.py export`) → Creates markdown files with YAML frontmatter
+3. **Human Review** → Editor opens markdown, evaluates quality
+4. **Approval** → `python scripts/lesson-preview.py approve --id 5` → Sets `approval_status = "approved"`
+5. **Bot Delivery Gate** → `send_lesson()` checks: only deliver if `lesson.approval_status == "approved"`
+6. **Scheduler Gate** → Scheduled jobs skip non-approved lessons automatically
+
+**Components**:
+
+- **Preview DB** (`src/knowledge/preview_db.py`): Queries for approved/pending/rejected lessons
+- **Preview Exporter** (`src/content/preview_exporter.py`): Export to markdown with frontmatter
+- **Preview CLI** (`scripts/lesson-preview.py`): Approve/reject/list commands
+- **Bot Handlers** (`src/bot/handlers.py`): Delivery gates check `approval_status`
+
+**CLI Commands**:
+
+```bash
+python scripts/lesson-preview.py export          # Export pending to markdown
+python scripts/lesson-preview.py list --status pending
+python scripts/lesson-preview.py approve --id 5
+python scripts/lesson-preview.py approve --all   # Bulk approve
+python scripts/lesson-preview.py reject --id 5
+```
+
+---
+
 ## Current Data Status (2026-02-28)
 
 **Database**: `data/feynman.db`
@@ -220,10 +297,10 @@ src/
 **Processing Progress**:
 - Parser: Sections per chapter increased from 1 → 6.5 (recursive h2/h3 detection)
 - Chunker: Lessons increased from 282 → 843 with semantic titles
-- Enhancement: ~2.3% complete (19/843 lessons)
-- Rendering: 263+ formulas rendered
-- Pipeline: Stages 1-3 (crawl, parse, chunk) complete
-- Enhancement: In progress (Claude Code workflow)
+- Enhancement: ~2.3% complete (19/843 lessons total)
+- Rendering: 263+ formula blocks rendered with grouped xelatex blocks
+- Approval: Workflow implemented; lessons gated at delivery
+- Pipeline: Stages 1-3 (crawl, parse, chunk) complete; enhancement in progress
 
 ---
 
