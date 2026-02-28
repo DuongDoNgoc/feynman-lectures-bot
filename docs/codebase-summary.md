@@ -42,6 +42,8 @@ src/
 |------|----------|---------|
 | `bot.py` | `create_app(config)` | Build Telegram Application |
 | `bot.py` | `run_bot(config)` | Start bot polling (blocking) |
+| `handlers.py` | `send_lesson_to_chat(bot, chat_id, lesson)` | Core delivery function (scheduler + programmatic) |
+| `handlers.py` | `send_lesson(update, context, lesson)` | Command handler wrapper (delegates to send_lesson_to_chat) |
 | `handlers.py` | `start_handler()` | Welcome message |
 | `handlers.py` | `next_handler()` | Deliver next lesson |
 | `handlers.py` | `quiz_handler()` | Send interactive quiz |
@@ -217,13 +219,14 @@ src/
 | `_extract_table_positions()` | Find all markdown tables with char positions |
 | `_group_nearby_formulas()` | Group formulas within 300 chars |
 | `_is_real_latex()` | Filter false positives (plain text, single vars) |
+| `_ensure_max_size()` | Downscale PNG if width + height > 9500 (Telegram limit) |
 
 **Features**:
 - **Three-tier rendering**: Single formula (pdflatex) | Combined blocks (xelatex+fontspec) | Tables (xelatex+tabular)
 - **Grouped blocks**: Nearby formulas (<300 char gap) merged into xelatex minipage(12cm) images
 - **Table rendering**: Markdown tables converted to LaTeX tabular, rendered as PNG with `tbl_` prefix
 - **Unified block dictionary**: `math_images_json` stores `{type, path, start, end}` for formulas AND tables
-- **Filename convention**:
+- **Filename convention** (cached by MD5):
   - Single formula: `{md5_hash}.png`
   - Combined block: `cb_{md5_hash}.png`
   - Table: `tbl_{md5_hash}.png`
@@ -318,22 +321,24 @@ python scripts/lesson-preview.py reject --id 5
 
 ---
 
-## Current Data Status (2026-02-28)
+## Current Data Status (2026-03-01)
 
 **Database**: `data/feynman.db`
 - **Total Lessons**: 843 lessons (up from 282 after parser/chunker fix)
+- **Approved Lessons**: 80 lessons approved for delivery (9.4%)
 - **Sections**: 607 sections across 94 chapters (avg 6.5/chapter, was 1)
-- **Enhanced Lessons**: 19 completed lessons in `enhanced_outputs.jsonl`
-- **Pending Lessons**: 824 lessons awaiting enhancement in `pending_prompts.jsonl`
-- **Rendered Images**: 263+ PNG formula images in `data/images/`
+- **Enhanced Lessons**: 80+ completed lessons in database
+- **Pending Lessons**: 763 lessons awaiting enhancement
+- **Rendered Images**: 300+ PNG formula images, 9+ table blocks in `data/images/`
 
 **Processing Progress**:
 - Parser: Sections per chapter increased from 1 → 6.5 (recursive h2/h3 detection)
 - Chunker: Lessons increased from 282 → 843 with semantic titles
-- Enhancement: ~2.3% complete (19/843 lessons total)
-- Rendering: 263+ formula blocks rendered with grouped xelatex blocks
+- Enhancement: ~9.5% complete (80/843 lessons approved)
+- Rendering: 300+ formula blocks + 9 table blocks rendered
 - Approval: Workflow implemented; lessons gated at delivery
-- Pipeline: Stages 1-3 (crawl, parse, chunk) complete; enhancement in progress
+- Pipeline: Stages 1-3 (crawl, parse, chunk) complete; enhancement ongoing
+- **Bot Status**: Live since 2026-03-01 (polling mode, 3 lessons/day)
 
 ---
 

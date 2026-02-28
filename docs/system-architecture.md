@@ -124,25 +124,31 @@ flowchart TB
 sequenceDiagram
     participant S as Scheduler
     participant JQ as JobQueue
+    participant H as Handlers
     participant DB as Database
     participant T as Telegram API
 
     S->>JQ: Daily job at 07:20
     JQ->>DB: get_next_lesson_by_type("concept")
     DB-->>JQ: Lesson object
-    JQ->>T: send_message()
+    JQ->>H: send_lesson_to_chat(bot, chat_id, lesson)
+    H->>T: send_message(text segments)
+    H->>T: send_photo(math/table images)
+    H->>T: send_message(source URL)
     T-->>S: Message delivered
 
     S->>JQ: Daily job at 12:15
     JQ->>DB: get_next_lesson_by_type("deep_dive")
     DB-->>JQ: Lesson object
-    JQ->>T: send_message()
+    JQ->>H: send_lesson_to_chat(bot, chat_id, lesson)
 
     S->>JQ: Daily job at 18:30
     JQ->>DB: get_next_lesson_by_type("quiz")
     DB-->>JQ: Quiz lesson
-    JQ->>T: send_quiz_keyboard()
+    JQ->>H: send_lesson_to_chat(bot, chat_id, lesson)
 ```
+
+**Note**: Scheduler now imports and calls `send_lesson_to_chat()` from `handlers.py`, which is the core delivery function used by both scheduler and command handlers.
 
 ---
 
@@ -645,157 +651,67 @@ Accepts:
 
 **Quick Summary**:
 - Detects markdown tables in lesson content via regex pattern (header | separator | rows)
-- Converts markdown tables to LaTeX tabular environment
+- Converts markdown tables to LaTeX tabular environment via `_markdown_table_to_latex()`
 - Renders as PNG using xelatex with filename prefix `tbl_`
+- Ensures PNG size stays within Telegram limits via `_ensure_max_size()` (max width + height = 9500 pixels)
 - Stores in unified `math_images_json` block dictionary with `type: "table"`
 - MD5-based caching; cap: 20 tables per lesson
 - Interleaved delivery via handlers (no special code needed)
 
 ---
 
-## Error Handling Strategy
+## Error Handling and Reliability
 
-### Circuit Breaker Pattern (Crawler)
+**See**: [Error Handling Strategy](./error-handling.md)
 
-```mermaid
-stateDiagram-v2
-    [*] --> Normal: Start crawling
-
-    Normal --> Failure: Request fails
-    Failure --> Normal: Retry succeeds
-    Failure --> Failure: Retry fails (count < 20)
-
-    Failure --> Open: 20 consecutive failures
-    Open --> [*]: Stop crawling
-
-    note right of Open
-        User action required:
-        1. Wait 24h
-        2. Manual download
-    end note
-```
-
-### Graceful Degradation (Rendering)
-
-```mermaid
-flowchart TD
-    START[LaTeX Formula] --> SINGLE{Single or Combined?}
-    SINGLE -->|Single| TRY1[pdflatex]
-    SINGLE -->|Combined Block| TRY2[xelatex + fontspec]
-    TRY1 -->|Success| DONE[PNG Generated]
-    TRY1 -->|Failure| SKIP[Skip, log warning]
-    TRY2 -->|Success| DONE
-    TRY2 -->|Failure| SKIP
-
-    style DONE fill:#c8e6c9
-    style SKIP fill:#ffcdd2
-```
+**Summary**:
+- Circuit breaker pattern for crawler (stops after 20 failures)
+- Graceful degradation for rendering (skip formula, continue delivery)
+- LLM retry logic with exponential backoff
+- Database WAL mode for crash recovery
+- Systemd auto-restart for bot process
+- Health check system for monitoring
 
 ---
 
 ## Deployment Architecture
 
-### Development
+**See**: [Deployment Guide](./deployment-guide.md)
 
-```mermaid
-graph TB
-    DEV[Developer Machine]
-    DEV --> PIPELINE[python pipeline.py]
-    DEV --> BOT[python main.py]
-
-    PIPELINE --> DB[(data/feynman.db)]
-    BOT --> DB
-
-    style DEV fill:#e1f5fe
-```
-
-### Production (systemd)
-
-```mermaid
-graph TB
-    SYSTEM[Linux Server]
-    SYSTEM --> SERVICE[feynman-bot.service]
-    SERVICE --> BOT[python main.py]
-
-    BOT --> DB[(data/feynman.db)]
-    BOT --> LOG[/var/log/feynman-bot/]
-
-    SYSTEM --> TIMER[systemd timer]
-    TIMER --> PIPELINE[python pipeline.py --stage crawl]
-
-    style SERVICE fill:#c8e6c9
-```
+- **Development**: `python pipeline.py` and `python main.py` on developer machine
+- **Production**: systemd service + timer for bot and pipeline
+- **Process Management**: Auto-restart on failure via systemd
+- **Logging**: File + console to `data/feynman-bot.log`
 
 ---
 
-## Security Architecture
+## Security
 
-```mermaid
-graph TB
-    subgraph "Environment Variables"
-        ENV[.env file]
-    end
+**Configuration Management**:
+- API keys in `.env` (environment variables)
+- Configuration externalized in `config.yaml`
+- No secrets committed to git
 
-    subgraph "Configuration"
-        CONFIG[config.yaml]
-    end
-
-    subgraph "Application"
-        APP[Python Application]
-    end
-
-    subgraph "External APIs"
-        ANTH[Anthropic API]
-        CLAUDE[Claude Code CLI]
-        DEEP[DeepSeek API]
-        TG[Telegram API]
-    end
-
-    ENV -->|load_config| CONFIG
-    CONFIG -->|${VAR} resolution| APP
-    APP -->|API Key| ANTH
-    APP -->|Claude Code| CLAUDE
-    APP -->|API Key| DEEP
-    APP -->|Token| TG
-
-    style ENV fill:#ffcdd2
-    style ANTH fill:#fff9c4
-    style CLAUDE fill:#ffcc80
-    style DEEP fill:#fff9c4
-    style TG fill:#fff9c4
-```
+**API Key Isolation**:
+- Anthropic API: content enhancement
+- Claude Code CLI: enhancement workflow
+- DeepSeek API: Q&A functionality
+- Telegram Bot API: messaging
 
 ---
 
-## Scalability Considerations
+## Scalability Roadmap
 
-### Current Limitations
+**Current Constraints**:
+- SQLite single-writer (10+ concurrent user bottleneck)
+- Single chat_id (not multi-user)
+- Sequential enhancement (hours per volume)
 
-| Component | Limitation | Impact |
-|-----------|------------|--------|
-| SQLite | Single-writer concurrency | Bottleneck at 10+ concurrent users |
-| Single chat_id | One user per deployment | Not multi-user ready |
-| Sequential LLM calls | Slow enhancement pipeline | Hours for full volume |
-| No caching | Repeated rendering | Wasted computation |
-
-### Future Scaling Paths
-
-```mermaid
-graph LR
-    CURRENT[Current] --> PG[PostgreSQL Migration]
-    CURRENT --> MULTI[Multi-user Support]
-    CURRENT --> CACHE[Redis Cache Layer]
-    CURRENT --> QUEUE[Task Queue]
-
-    PG --> SCALE1[100+ users]
-    MULTI --> SCALE2[Per-user preferences]
-    CACHE --> SCALE3[10x faster responses]
-    QUEUE --> SCALE4[Parallel enhancement]
-
-    style CURRENT fill:#ffcdd2
-    style PG fill:#c8e6c9
-    style MULTI fill:#c8e6c9
-```
+**Future Scaling**:
+- PostgreSQL migration for multi-user
+- Redis cache layer for formula caching
+- Task queue for parallel enhancement
+- Per-user preferences and timezones
 
 ---
 

@@ -114,7 +114,7 @@ Feynman Bot is an automated Telegram-based learning system that delivers persona
 - `id`, `chapter_id`, `number`, `title`, `content_text`, `latex_formulas[]`, `image_refs[]`
 
 **Lesson**: Enhanced content
-- `id`, `section_id`, `lesson_type`, `sequence`, `title`, `content_enhanced`, `quiz_json`, `math_images_json`, `enhancement_status`, `approval_status`
+- `id`, `section_id`, `lesson_type`, `sequence`, `title`, `content_enhanced`, `quiz_json`, `math_images_json`, `diagram_images_json`, `enhancement_status`, `approval_status`
 
 **UserProgress**: Tracking
 - `id`, `user_id`, `lesson_id`, `sent_at`, `read_at`, `quiz_score`
@@ -229,3 +229,4 @@ aiohttp==3.11.11
 |---------|------|---------|
 | 1.0.0 | 2025-02-25 | Initial PDR documentation |
 | 1.0.1 | 2026-02-27 | Updated code statistics and current status |
+| 2.0.0 | 2026-03-01 | Added diagram_images_json to data model; bot officially live |

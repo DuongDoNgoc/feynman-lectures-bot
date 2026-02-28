@@ -2,9 +2,9 @@
 
 ## Project Status
 
-**Current Version**: 1.0.0
-**Last Updated**: 2026-02-27
-**Status**: Production Ready
+**Current Version**: 2.0.0
+**Last Updated**: 2026-03-01
+**Status**: Live (since 2026-03-01)
 
 ---
 
@@ -39,7 +39,7 @@
 
 **Timeline**: Current focus (Started 2025-02, ongoing)
 **Priority**: HIGH
-**Current Progress**: Content enhancement in progress (19/843 lessons complete)
+**Current Progress**: Content enhancement ongoing (80/843 lessons approved, 9.4%)
 
 **Goals**: Ensure reliability and maintainability
 
@@ -106,9 +106,9 @@
 - Pipeline stages 1-3 (crawl, parse, chunk): Complete
   - Parser: Recursive h2/h3 detection working (607 sections, avg 6.5/chapter)
   - Chunker: Semantic titles "ChN-M: Title — type" (843 lessons total)
-- Enhancement stage: 19 lessons enhanced, 824 pending
-- Rendering stage: 263+ formulas rendered
-- Bot: Operational with all 10 commands
+- Enhancement stage: 80 lessons approved, 763 pending (9.4% complete)
+- Rendering stage: 300+ formulas + 9 tables rendered
+- Bot: Live since 2026-03-01 with all 10 commands
 
 **Success Criteria**:
 - 99%+ bot uptime

@@ -2,8 +2,9 @@
 
 Automated Telegram-based physics learning system delivering personalized micro-lessons from Richard Feynman's "Lectures on Physics."
 
-**Project Status**: Production Ready (v1.3.0)
-**Last Updated**: 2026-02-28
+**Project Status**: Live (v2.0.0)
+**Last Updated**: 2026-03-01
+**Bot Status**: Running (since 2026-03-01, polling mode, 3 lessons/day)
 
 ## Features
 
@@ -14,6 +15,8 @@ Automated Telegram-based physics learning system delivering personalized micro-l
 - **Progress Tracking**: Streak monitoring and completion statistics
 - **Vietnamese Language**: Localized content with English physics terminology
 - **Advanced Formula Rendering**: Single formula (pdflatex) and grouped blocks (xelatex+fontspec) with UTF-8 support
+- **Table Rendering**: Markdown tables converted to PNG via LaTeX for Telegram delivery
+- **Diagram Support**: Inline SVG/JPG diagrams from Feynman Lectures chapters included in lessons
 - **Approval Workflow**: Human review gate with preview export and approval tracking before delivery
 - **Source Attribution**: Lessons link back to source Feynman Lectures chapters
 
