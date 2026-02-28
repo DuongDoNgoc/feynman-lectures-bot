@@ -27,7 +27,8 @@ log = logging.getLogger(__name__)
 STAGES = ["crawl", "parse", "chunk", "enhance", "render", "preview"]
 
 
-async def run_pipeline(config: dict, stages: list[str], import_mode: bool = False, batch_size: int = 0):
+async def run_pipeline(config: dict, stages: list[str], import_mode: bool = False,
+                       batch_size: int = 0, direct: bool = False):
     await init_db(config)
 
     if "crawl" in stages:
@@ -48,7 +49,8 @@ async def run_pipeline(config: dict, stages: list[str], import_mode: bool = Fals
     if "enhance" in stages:
         log.info("=== Stage: enhance ===")
         from src.content.enhancer import run_enhancer
-        await run_enhancer(config, import_mode=import_mode, batch_size=batch_size)
+        await run_enhancer(config, import_mode=import_mode, batch_size=batch_size,
+                           direct=direct)
 
     if "render" in stages:
         log.info("=== Stage: render ===")
@@ -74,6 +76,8 @@ def main():
                         help="Import enhanced_outputs.jsonl into DB (use with --stage enhance)")
     parser.add_argument("--batch", type=int, default=0,
                         help="Limit enhance stage to N lessons per run (0=all)")
+    parser.add_argument("--direct", action="store_true",
+                        help="Call Anthropic API directly to enhance+approve (no manual step)")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -81,7 +85,8 @@ def main():
 
     stages = [args.stage] if args.stage else STAGES
     log.info("Running stages: %s", stages)
-    asyncio.run(run_pipeline(config, stages, import_mode=args.import_mode, batch_size=args.batch))
+    asyncio.run(run_pipeline(config, stages, import_mode=args.import_mode,
+                             batch_size=args.batch, direct=args.direct))
 
 
 if __name__ == "__main__":

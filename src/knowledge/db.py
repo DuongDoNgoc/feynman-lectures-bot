@@ -190,6 +190,17 @@ async def insert_section(chapter_id: int, section: Section) -> int:
         return cursor.lastrowid
 
 
+async def get_section_formulas_map() -> dict[int, list[str]]:
+    """Return {section_id: [latex_formula, ...]} for all sections."""
+    async with get_db() as conn:
+        rows = await conn.execute_fetchall("SELECT id, latex_formulas FROM sections")
+        import json
+        return {
+            r["id"]: json.loads(r["latex_formulas"]) if r["latex_formulas"] else []
+            for r in rows
+        }
+
+
 async def get_all_sections() -> list[Section]:
     async with get_db() as conn:
         rows = await conn.execute_fetchall("""

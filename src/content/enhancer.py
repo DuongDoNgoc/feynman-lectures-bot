@@ -138,18 +138,21 @@ def _extract_quiz_json(content: str) -> str | None:
     return None
 
 
-def _format_formulas(content: str) -> str:
-    latex_pattern = re.compile(r"\$\$?[^$]+\$\$?|\\\(.*?\\\)|\\\[.*?\\\]", re.DOTALL)
-    found = latex_pattern.findall(content[:3000])
-    return "\n".join(f"- {f}" for f in found[:10]) if found else "(see content above)"
+def _format_formulas(formulas: list[str]) -> str:
+    """Format a list of LaTeX formula strings for inclusion in LLM prompts."""
+    if not formulas:
+        return "(không có công thức riêng biệt)"
+    # Wrap each formula in $...$ so the LLM sees proper LaTeX delimiters
+    lines = [f"- ${f}$" for f in formulas[:15] if f.strip()]
+    return "\n".join(lines) if lines else "(không có công thức riêng biệt)"
 
 
-def _build_prompt(lesson: Lesson, role: str) -> str:
+def _build_prompt(lesson: Lesson, role: str, formulas: list[str] | None = None) -> str:
     template = PROMPT_TEMPLATES[lesson.lesson_type]
     return template.format(
         role=role,
         content=lesson.content_enhanced[:4000],
-        formulas=_format_formulas(lesson.content_enhanced),
+        formulas=_format_formulas(formulas or []),
     )
 
 
@@ -183,6 +186,9 @@ async def generate_prompts(config: dict, batch_size: int = 0):
     # Load already-output lesson IDs to skip
     done_ids = _load_done_ids()
 
+    # Pre-fetch section formulas keyed by section_id to avoid N+1 queries
+    section_formulas = await db.get_section_formulas_map()
+
     written = 0
     with open(PROMPTS_FILE, "a") as f:  # append mode = resumable
         for lesson in pending:
@@ -190,7 +196,8 @@ async def generate_prompts(config: dict, batch_size: int = 0):
             if key in done_ids:
                 continue
             system = SYSTEM_PROMPT.format(role=role)
-            user_prompt = _build_prompt(lesson, role)
+            formulas = section_formulas.get(lesson.section_id, [])
+            user_prompt = _build_prompt(lesson, role, formulas=formulas)
             record = {
                 "lesson_id": lesson.id,
                 "lesson_type": lesson.lesson_type,
@@ -277,11 +284,81 @@ async def import_outputs(config: dict):
     log.info("Import done: %d succeeded, %d failed, %d skipped", succeeded, failed, skipped)
 
 
+# ─── Direct API enhancement ───────────────────────────────────────────────────
+
+async def enhance_direct(config: dict, batch_size: int = 30):
+    """Call the Anthropic API directly to enhance lessons — no manual step needed.
+
+    Uses config.enhancement settings. Auto-approves each lesson after success.
+
+    Args:
+        batch_size: Max lessons to process per run (default 30).
+    """
+    import anthropic
+    import asyncio
+
+    econf = config.get("enhancement", {})
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or econf.get("api_key", "")
+    model = econf.get("model", "claude-haiku-4-5-20251001")
+    temperature = econf.get("temperature", 0.7)
+    max_tokens = econf.get("max_tokens", 3500)
+    delay = econf.get("request_delay", 1.0)
+    role = config["user"]["role"]
+
+    client = anthropic.Anthropic(api_key=api_key)
+    pending = await db.get_pending_lessons()
+    if not pending:
+        log.info("No pending lessons to enhance.")
+        return 0
+
+    if batch_size > 0:
+        pending = pending[:batch_size]
+
+    section_formulas = await db.get_section_formulas_map()
+    succeeded = failed = 0
+
+    for lesson in pending:
+        formulas = section_formulas.get(lesson.section_id, [])
+        system_msg = SYSTEM_PROMPT.format(role=role)
+        user_prompt = _build_prompt(lesson, role, formulas=formulas)
+
+        try:
+            response = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                system=system_msg,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            content = _normalize_content(response.content[0].text)
+            lesson.title = _extract_title(content)
+            lesson.content_enhanced = content
+            lesson.enhancement_status = "completed"
+            if lesson.lesson_type == "quiz":
+                lesson.quiz_json = _extract_quiz_json(content)
+            await db.update_lesson_content(lesson)
+            # Auto-approve after successful enhancement
+            await db.set_approval_status(lesson.id, "approved")
+            succeeded += 1
+            log.info("Enhanced+approved lesson %d: %s", lesson.id, lesson.title[:50])
+        except Exception as e:
+            log.error("Failed lesson %d: %s", lesson.id, e)
+            failed += 1
+
+        await asyncio.sleep(delay)
+
+    log.info("Direct enhance: %d succeeded, %d failed (of %d)", succeeded, failed, len(pending))
+    return succeeded
+
+
 # ─── Orchestrator ─────────────────────────────────────────────────────────────
 
-async def run_enhancer(config: dict, import_mode: bool = False, batch_size: int = 0):
+async def run_enhancer(config: dict, import_mode: bool = False, batch_size: int = 0,
+                       direct: bool = False):
     if import_mode:
         await import_outputs(config)
+    elif direct:
+        await enhance_direct(config, batch_size=batch_size)
     else:
         await generate_prompts(config, batch_size=batch_size)
 
