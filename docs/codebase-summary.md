@@ -32,9 +32,9 @@ src/
 **Purpose**: Telegram bot application and command handlers
 
 **Files**:
-- `bot.py` (88 lines): Application factory and bot runner
-- `handlers.py` (437 lines): Command/message handlers
-- `scheduler.py` (173 lines): JobQueue-based lesson scheduling
+- `bot.py` (91 lines): Application factory and bot runner
+- `handlers.py` (565 lines): Command/message handlers ⚠️ exceeds 200-line guideline
+- `scheduler.py` (172 lines): JobQueue-based lesson scheduling
 
 **Key Functions**:
 
@@ -59,8 +59,8 @@ src/
 **Purpose**: Transform raw content into enhanced lessons
 
 **Files**:
-- `chunker.py` (99 lines): Section to chunk conversion
-- `enhancer.py` (273 lines): Claude Code session workflow for enhancement
+- `chunker.py` (98 lines): Section to chunk conversion
+- `enhancer.py` (286 lines): Claude Code session workflow for enhancement
 
 **Key Functions**:
 
@@ -90,8 +90,8 @@ src/
 **Purpose**: Web scraping and HTML parsing
 
 **Files**:
-- `scraper.py` (260 lines): Playwright-based stealth crawler
-- `parser.py` (228 lines): HTML/LaTeX extraction
+- `scraper.py` (243 lines): Playwright-based stealth crawler
+- `parser.py` (227 lines): HTML/LaTeX extraction
 
 **Key Functions**:
 
@@ -118,8 +118,8 @@ src/
 **Purpose**: Database layer and data models
 
 **Files**:
-- `models.py` (91 lines): Dataclass definitions
-- `db.py` (474 lines): SQLite async operations
+- `models.py` (90 lines): Dataclass definitions
+- `db.py` (473 lines): SQLite async operations
 
 **Key Functions**:
 
@@ -145,7 +145,7 @@ src/
 **Purpose**: Unified interface for multiple LLM providers
 
 **Files**:
-- `provider.py` (131 lines): Anthropic/OpenAI-compatible client
+- `provider.py` (130 lines): Anthropic/OpenAI-compatible client
 
 **Key Functions**:
 
@@ -164,7 +164,7 @@ src/
 **Purpose**: LaTeX to PNG conversion
 
 **Files**:
-- `math_renderer.py` (200 lines): Formula rendering pipeline
+- `math_renderer.py` (217 lines): Formula rendering pipeline ⚠️ exceeds 200-line guideline
 
 **Key Functions**:
 
@@ -192,6 +192,21 @@ src/
 | `validate_config()` | Assert required fields exist |
 | `setup_logging()` | Configure file + console logging |
 | `_get_nested()` | Dot-notation dict access |
+
+---
+
+## Current Data Status (2026-02-27)
+
+**Database**: `data/feynman.db` - 84 MB
+- **Enhanced Lessons**: 19 completed lessons in `enhanced_outputs.jsonl`
+- **Pending Lessons**: 545 lessons awaiting enhancement in `pending_prompts.jsonl`
+- **Rendered Images**: 263 PNG formula images in `data/images/`
+
+**Processing Progress**:
+- Enhancement: ~3.4% complete (19/564 lessons)
+- Rendering: 263 formulas rendered
+- Pipeline: Stages 1-3 (crawl, parse, chunk) complete
+- Enhancement: In progress (Claude Code workflow)
 
 ---
 
@@ -363,6 +378,7 @@ aiohttp==3.11.11
 3. **No backups**: No automated database backup
 4. **SQLite limits**: May bottleneck at high concurrency
 5. **Fixed schedule**: Review days hardcoded (Thu, Sun)
+6. **Large file size**: `handlers.py` (565 LOC) and `math_renderer.py` (217 LOC) exceed 200-line guideline
 
 ---
 

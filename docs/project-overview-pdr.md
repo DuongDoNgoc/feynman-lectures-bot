@@ -212,3 +212,4 @@ aiohttp==3.11.11
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0.0 | 2025-02-25 | Initial PDR documentation |
+| 1.0.1 | 2026-02-27 | Updated code statistics and current status |
