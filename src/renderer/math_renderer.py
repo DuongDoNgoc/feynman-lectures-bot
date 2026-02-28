@@ -94,7 +94,8 @@ def _clean_formula(formula: str) -> str:
     return formula
 
 
-MIN_PNG_SIZE = 80  # Telegram requires photos ≥ ~80px on each side
+MIN_PNG_SIZE = 80   # Telegram requires photos ≥ ~80px on each side
+MAX_PNG_SUM = 9500  # Telegram rejects photos where w + h > 10000
 
 
 def _ensure_min_size(png_path: str, min_px: int = MIN_PNG_SIZE) -> str:
@@ -107,6 +108,22 @@ def _ensure_min_size(png_path: str, min_px: int = MIN_PNG_SIZE) -> str:
             scale = max(min_px / w, min_px / h)
             img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
             img.save(png_path)
+    except Exception:
+        pass  # non-critical — image left as-is
+    return png_path
+
+
+def _ensure_max_size(png_path: str, max_sum: int = MAX_PNG_SUM) -> str:
+    """Downscale PNG in-place if w + h exceeds Telegram's photo limit. Returns path."""
+    try:
+        from PIL import Image
+        img = Image.open(png_path)
+        w, h = img.size
+        if w + h > max_sum:
+            scale = max_sum / (w + h)
+            img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+            img.save(png_path)
+            log.debug("Downscaled %s from %dx%d to %dx%d", png_path, w, h, int(w * scale), int(h * scale))
     except Exception:
         pass  # non-critical — image left as-is
     return png_path
@@ -422,7 +439,8 @@ def render_table(table_text: str, output_dir: str, dpi: int = 200) -> str | None
 
         shutil.copy2(tmp_png, png_path)
 
-    return _ensure_min_size(png_path)
+    _ensure_min_size(png_path)
+    return _ensure_max_size(png_path)
 
 
 # ─── Main rendering pipeline ────────────────────────────────────────────────
