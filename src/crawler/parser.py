@@ -88,46 +88,106 @@ def _element_text(el: Tag) -> str:
 
 
 def extract_sections(soup: BeautifulSoup) -> list[dict]:
-    """Split content into sections by h2/h3 headings.
+    """Split content into sections by h2/h3 headings (recursive search).
 
-    Returns list of {number, title, elements, text, latex_placeholders}.
+    Uses find_all() to detect headings nested inside div/section wrappers,
+    which content.children misses.
+
+    Returns list of {number, title, elements, text_parts}.
     """
     content = _find_content_div(soup)
     if not content:
         log.warning("No content container found; using full document body")
         content = soup
 
+    # Find ALL h2/h3 headings recursively (handles any nesting depth)
+    all_headings = content.find_all(list(HEADING_TAGS))
+
+    if not all_headings:
+        # No headings → return single section with all block content
+        blocks = content.find_all(list(BLOCK_TAGS))
+        if not blocks:
+            return []
+        return [{
+            "number": 1,
+            "title": "Full Chapter",
+            "elements": blocks,
+            "text_parts": [_element_text(el) for el in blocks],
+        }]
+
     sections = []
-    current: dict = {"number": 0, "title": "Introduction", "elements": [], "text_parts": []}
 
-    for el in content.children:
-        if isinstance(el, NavigableString):
-            text = el.strip()
-            if text:
-                current["text_parts"].append(text)
-            continue
-        if not isinstance(el, Tag):
-            continue
+    # Collect intro content before first heading
+    intro_parts = _collect_text_before(all_headings[0], content)
+    if intro_parts:
+        sections.append({
+            "number": 0,
+            "title": "Introduction",
+            "elements": [],
+            "text_parts": intro_parts,
+        })
 
-        if el.name in HEADING_TAGS:
-            # Save current section if it has content
-            if current["text_parts"] or current["elements"]:
-                sections.append(current)
-            current = {
-                "number": len(sections) + 1,
-                "title": el.get_text(strip=True),
-                "elements": [],
-                "text_parts": [],
-            }
-        elif el.name in BLOCK_TAGS or el.name in HEADING_TAGS:
-            current["elements"].append(el)
-            current["text_parts"].append(_element_text(el))
-
-    # Append last section
-    if current["text_parts"] or current["elements"]:
-        sections.append(current)
+    # Create one section per heading
+    for i, heading in enumerate(all_headings):
+        next_heading = all_headings[i + 1] if i + 1 < len(all_headings) else None
+        elements, text_parts = _collect_between_headings(heading, next_heading)
+        sections.append({
+            "number": len(sections) + 1,
+            "title": heading.get_text(strip=True),
+            "elements": elements,
+            "text_parts": text_parts,
+        })
 
     return sections
+
+
+def _collect_text_before(first_heading: Tag, content: Tag) -> list[str]:
+    """Collect block-level text appearing before the first heading."""
+    parts = []
+    for el in content.descendants:
+        if el is first_heading:
+            break
+        if isinstance(el, Tag) and el.name in BLOCK_TAGS:
+            # Skip ancestors of the first heading
+            if first_heading in el.descendants:
+                continue
+            # Skip blocks that contain nested blocks (avoid double-counting)
+            if el.find(list(BLOCK_TAGS)):
+                continue
+            text = _element_text(el)
+            if text:
+                parts.append(text)
+    return parts
+
+
+def _collect_between_headings(
+    heading: Tag, next_heading: Optional[Tag]
+) -> tuple[list[Tag], list[str]]:
+    """Collect block elements and text between two headings.
+
+    Walks siblings after the heading within its parent container (div.section).
+    Since Feynman Lectures wrap each section in a div.section, all content
+    between headings is within the same parent — no cross-container walking needed.
+    """
+    elements: list[Tag] = []
+    text_parts: list[str] = []
+
+    current = heading.next_sibling
+    while current:
+        if current is next_heading:
+            break
+        if isinstance(current, Tag):
+            # Stop if this element contains the next heading
+            if next_heading and next_heading in current.descendants:
+                break
+            if current.name in HEADING_TAGS:
+                break
+            if current.name in BLOCK_TAGS:
+                elements.append(current)
+                text_parts.append(_element_text(current))
+        current = current.next_sibling
+
+    return elements, text_parts
 
 
 def _build_section_text(section: dict, all_formulas: list[str]) -> tuple[str, list[str]]:

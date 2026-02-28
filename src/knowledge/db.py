@@ -192,8 +192,13 @@ async def insert_section(chapter_id: int, section: Section) -> int:
 
 async def get_all_sections() -> list[Section]:
     async with get_db() as conn:
-        rows = await conn.execute_fetchall("SELECT * FROM sections ORDER BY chapter_id, number")
-        return [_row_to_section(r) for r in rows]
+        rows = await conn.execute_fetchall("""
+            SELECT s.*, c.number AS chapter_number, c.title AS chapter_title
+            FROM sections s
+            JOIN chapters c ON s.chapter_id = c.id
+            ORDER BY c.number, s.number
+        """)
+        return [_row_to_section(r, with_chapter=True) for r in rows]
 
 
 async def get_sections_for_chapter(chapter_id: int) -> list[Section]:
@@ -204,14 +209,18 @@ async def get_sections_for_chapter(chapter_id: int) -> list[Section]:
         return [_row_to_section(r) for r in rows]
 
 
-def _row_to_section(r) -> Section:
-    return Section(
+def _row_to_section(r, with_chapter: bool = False) -> Section:
+    s = Section(
         id=r["id"], chapter_id=r["chapter_id"], number=r["number"],
         title=r["title"], content_text=r["content_text"],
         latex_formulas=json.loads(r["latex_formulas"] or "[]"),
         image_refs=json.loads(r["image_refs"] or "[]"),
-        parsed_at=r["parsed_at"]
+        parsed_at=r["parsed_at"],
     )
+    if with_chapter:
+        s.chapter_number = r["chapter_number"]
+        s.chapter_title = r["chapter_title"]
+    return s
 
 
 # ─── Lessons ─────────────────────────────────────────────────────────────────
