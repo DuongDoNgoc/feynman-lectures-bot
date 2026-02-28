@@ -1,12 +1,13 @@
 ---
 title: "Lesson Preview Markdown Generator"
 description: "Generate human-readable markdown files for Telegram Bot lessons with approval workflow"
-status: pending
+status: completed
 priority: P2
 effort: 4h
 branch: N/A
 tags: [content, export, preview, workflow]
 created: 2026-02-28
+completed: 2026-02-28
 ---
 
 # Lesson Preview Markdown Generator
@@ -34,10 +35,10 @@ Export pipeline that:
 
 | Phase | Description | Status | Effort |
 |-------|-------------|--------|--------|
-| [Phase 1](#phase-1-database-layer) | Database query functions | Pending | 1h |
-| [Phase 2](#phase-2-markdown-exporter) | Markdown generation | Pending | 1.5h |
-| [Phase 3](#phase-3-cli-tool) | CLI interface | Pending | 1h |
-| [Phase 4](#phase-4-integration) | Integration & testing | Pending | 0.5h |
+| [Phase 1](#phase-1-database-layer) | Database query functions | Completed | 1h |
+| [Phase 2](#phase-2-markdown-exporter) | Markdown generation | Completed | 1.5h |
+| [Phase 3](#phase-3-cli-tool) | CLI interface | Completed | 1h |
+| [Phase 4](#phase-4-integration) | Integration & testing | Completed | 0.5h |
 
 ---
 

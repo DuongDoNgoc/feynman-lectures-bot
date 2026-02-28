@@ -112,6 +112,18 @@ async def init_db(config: Optional[dict] = None):
             CREATE INDEX IF NOT EXISTS idx_scheduled_user
                 ON scheduled_lessons(user_id, delivered);
         """)
+
+        # Migration: Add approval_status column if not exists
+        try:
+            await conn.execute("ALTER TABLE lessons ADD COLUMN approval_status TEXT DEFAULT 'pending'")
+            log.info("Added approval_status column to lessons table")
+        except aiosqlite.OperationalError:
+            pass  # Column already exists
+
+        await conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_lessons_approval
+            ON lessons(approval_status)
+        """)
         await conn.commit()
     log.info("Database initialized at %s", _db_path)
 
@@ -250,11 +262,15 @@ async def get_pending_lessons() -> list[Lesson]:
 
 
 async def get_next_lesson(user_id: int) -> Optional[Lesson]:
-    """Next undelivered lesson for user (any type)."""
+    """Next undelivered lesson for user (any type).
+
+    Only returns lessons with approval_status='approved'.
+    """
     async with get_db() as conn:
         rows = await conn.execute_fetchall(
             """SELECT l.* FROM lessons l
                WHERE l.enhancement_status = 'completed'
+               AND (l.approval_status = 'approved' OR l.approval_status IS NULL)
                AND NOT EXISTS (
                    SELECT 1 FROM user_progress p
                    WHERE p.user_id = ? AND p.lesson_id = l.id AND p.sent_at IS NOT NULL
@@ -267,11 +283,15 @@ async def get_next_lesson(user_id: int) -> Optional[Lesson]:
 
 
 async def get_next_lesson_by_type(user_id: int, lesson_type: str) -> Optional[Lesson]:
-    """Next undelivered lesson of specific type for user."""
+    """Next undelivered lesson of specific type for user.
+
+    Only returns lessons with approval_status='approved'.
+    """
     async with get_db() as conn:
         rows = await conn.execute_fetchall(
             """SELECT l.* FROM lessons l
                WHERE l.lesson_type = ? AND l.enhancement_status = 'completed'
+               AND (l.approval_status = 'approved' OR l.approval_status IS NULL)
                AND NOT EXISTS (
                    SELECT 1 FROM user_progress p
                    WHERE p.user_id = ? AND p.lesson_id = l.id AND p.sent_at IS NOT NULL
@@ -313,13 +333,21 @@ async def get_lessons_delivered_this_week(user_id: int) -> list[Lesson]:
 
 
 def _row_to_lesson(r) -> Lesson:
+    # Handle approval_status column (may not exist on older DBs)
+    approval_status = "pending"
+    try:
+        approval_status = r["approval_status"] if r["approval_status"] else "pending"
+    except (KeyError, IndexError):
+        pass
+
     return Lesson(
         id=r["id"], section_id=r["section_id"], lesson_type=r["lesson_type"],
         sequence=r["sequence"], title=r["title"],
         content_enhanced=r["content_enhanced"],
         examples_json=r["examples_json"], quiz_json=r["quiz_json"],
         math_images_json=r["math_images_json"],
-        enhancement_status=r["enhancement_status"], created_at=r["created_at"]
+        enhancement_status=r["enhancement_status"], approval_status=approval_status,
+        created_at=r["created_at"]
     )
 
 

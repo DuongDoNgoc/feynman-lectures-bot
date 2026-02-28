@@ -56,6 +56,7 @@ class Lesson:
     quiz_json: Optional[str] = None
     math_images_json: Optional[str] = None
     enhancement_status: str = "pending"   # pending | in_progress | completed
+    approval_status: str = "pending"      # pending | approved | rejected
     created_at: Optional[str] = None
 
 
