@@ -13,11 +13,9 @@ Commands:
 
 Text messages (non-command) → free-form Q&A via DeepSeek
 """
-import hashlib
 import json
 import logging
 import os
-import re
 
 from telegram import (
     CallbackQuery,
@@ -33,15 +31,6 @@ from src.knowledge import db
 from src.knowledge.models import Lesson
 
 log = logging.getLogger(__name__)
-
-# Formula extraction patterns — must match math_renderer.py:155-159 exactly
-# (cross-reference: src/renderer/math_renderer.py `render_lesson_math`)
-FORMULA_PATTERNS = [
-    (r"\$\$(.*?)\$\$", "$$"),
-    (r"\\\[(.*?)\\\]", r"\["),
-    (r"\$((?:[^$]|\\.)+?)\$", "$"),
-    (r"\\\((.*?)\\\)", r"\("),
-]
 
 # Injected at bot startup (see bot.py)
 _config: dict = {}
@@ -102,74 +91,37 @@ def split_message(text: str, max_len: int = 4096) -> list[str]:
     return parts
 
 
-def _formula_hash(formula: str) -> str:
-    """Same hash function as math_renderer._formula_hash."""
-    return hashlib.md5(formula.encode()).hexdigest()[:12]
-
-
-def _extract_formula_positions(content: str) -> list[dict]:
-    """Find all formulas with their text positions, sorted by position.
-
-    Deduplicates by formula text (first occurrence wins), matching renderer logic.
-    Returns list of dicts with keys: start, end, formula, hash, full_match.
-    """
-    seen_formulas: set[str] = set()
-    results = []
-
-    for pattern, _ in FORMULA_PATTERNS:
-        for m in re.finditer(pattern, content, re.DOTALL):
-            formula = m.group(1).strip()
-            if formula and len(formula) > 2 and formula not in seen_formulas:
-                seen_formulas.add(formula)
-                results.append({
-                    "start": m.start(),
-                    "end": m.end(),
-                    "formula": formula,
-                    "hash": _formula_hash(formula),
-                    "full_match": m.group(0),
-                })
-
-    results.sort(key=lambda x: x["start"])
-    return results
-
-
-def _build_interleaved_segments(content: str, img_paths: list[str]) -> list[dict]:
-    """Split content into ordered text/image segments.
+def _build_interleaved_segments(content: str, blocks: list[dict]) -> list[dict]:
+    """Split content into ordered text/image segments using pre-rendered blocks.
 
     Args:
         content: lesson content_enhanced text
-        img_paths: PNG file paths from math_images_json (only existing files)
+        blocks: block dicts from math_images_json, each with keys: type, path, start, end
 
     Returns:
         list of {"type": "text", "content": str} or {"type": "image", "path": str}
     """
-    # Build hash → path lookup from available PNGs (filename is "{hash}.png")
-    png_by_hash: dict[str, str] = {}
-    for p in img_paths:
-        basename = os.path.basename(p)
-        h = os.path.splitext(basename)[0]
-        png_by_hash[h] = p
-
-    formulas = _extract_formula_positions(content)
-    if not formulas:
+    if not blocks:
         return [{"type": "text", "content": content}]
+
+    # Sort blocks by start position
+    sorted_blocks = sorted(blocks, key=lambda b: b["start"])
 
     segments = []
     cursor = 0
 
-    for f in formulas:
-        text_before = content[cursor:f["start"]]
+    for block in sorted_blocks:
+        text_before = content[cursor:block["start"]]
         if text_before.strip():
             segments.append({"type": "text", "content": text_before})
 
-        png_path = png_by_hash.get(f["hash"])
-        if png_path:
-            segments.append({"type": "image", "path": png_path})
+        if os.path.exists(block["path"]):
+            segments.append({"type": "image", "path": block["path"]})
         else:
-            # No PNG available — keep formula text inline
-            segments.append({"type": "text", "content": f["full_match"]})
+            # PNG missing — keep raw text for this span
+            segments.append({"type": "text", "content": content[block["start"]:block["end"]]})
 
-        cursor = f["end"]
+        cursor = block["end"]
 
     text_after = content[cursor:]
     if text_after.strip():
@@ -218,11 +170,17 @@ async def send_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE, lesson
     """Deliver lesson with text and formula images interleaved inline."""
     chat_id = update.effective_chat.id
 
-    img_paths = []
+    blocks = []
     if lesson.math_images_json:
-        img_paths = [p for p in json.loads(lesson.math_images_json) if os.path.exists(p)]
+        raw = json.loads(lesson.math_images_json)
+        # Support both new block format (list of dicts) and legacy format (list of paths)
+        if raw and isinstance(raw[0], dict):
+            blocks = raw
+        else:
+            # Legacy: flat list of PNG paths — no position info, skip interleaving
+            blocks = []
 
-    segments = _coalesce_segments(_build_interleaved_segments(lesson.content_enhanced, img_paths))
+    segments = _coalesce_segments(_build_interleaved_segments(lesson.content_enhanced, blocks))
 
     for seg in segments:
         if seg["type"] == "text":

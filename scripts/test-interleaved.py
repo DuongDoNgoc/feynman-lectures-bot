@@ -36,13 +36,15 @@ async def main():
 
     print(f"Sending lesson #{row['id']}: {row['title']} ({row['lesson_type']})")
 
-    img_paths = []
+    blocks = []
     if row["math_images_json"]:
-        img_paths = [p for p in json.loads(row["math_images_json"]) if os.path.exists(p)]
-    print(f"  {len(img_paths)} PNG(s) available")
+        raw = json.loads(row["math_images_json"])
+        if raw and isinstance(raw[0], dict):
+            blocks = raw
+    print(f"  {len(blocks)} block(s) available")
 
     segments = _coalesce_segments(
-        _build_interleaved_segments(row["content_enhanced"], img_paths)
+        _build_interleaved_segments(row["content_enhanced"], blocks)
     )
     text_count = sum(1 for s in segments if s["type"] == "text")
     img_count = sum(1 for s in segments if s["type"] == "image")
