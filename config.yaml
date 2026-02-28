@@ -46,9 +46,9 @@ user:
   language: "vi-en"        # mixed Vietnamese + English physics terms
 
 chunker:
-  target_words: 1000
-  tolerance: 0.2           # ±20% = 800-1200 word range
-  min_words: 500
+  target_words: 2000       # up from 1000; sections are now 500-3000 words
+  tolerance: 0.25          # ±25% = 1500-2500 word range
+  min_words: 800           # up from 500; avoid tiny fragments
 
 renderer:
   dpi: 1200

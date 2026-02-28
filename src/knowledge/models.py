@@ -25,6 +25,9 @@ class Section:
     latex_formulas: list = field(default_factory=list)   # list of LaTeX strings
     image_refs: list = field(default_factory=list)       # local image paths
     parsed_at: Optional[str] = None
+    # Populated from JOIN query (not stored in sections table)
+    chapter_number: int = 0
+    chapter_title: str = ""
 
     @property
     def latex_formulas_json(self) -> str:
@@ -42,6 +45,10 @@ class Chunk:
     formulas: list = field(default_factory=list)
     word_count: int = 0
     section_ids: list = field(default_factory=list)
+    # Populated from first section in chunk for title generation
+    chapter_number: int = 0
+    section_number: int = 0
+    section_title: str = ""
 
 
 @dataclass
