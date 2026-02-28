@@ -28,7 +28,8 @@ async def main():
         "SELECT id, title, lesson_type, content_enhanced, math_images_json FROM lessons WHERE id=?",
         (lesson_id,),
     ).fetchone()
-    conn.close()
+    # Keep conn open for source URL query below
+    conn_url = conn
 
     if not row:
         print(f"Lesson {lesson_id} not found")
@@ -70,6 +71,20 @@ async def main():
             except Exception as e:
                 print(f"  [!] Image failed: {e}")
         print(f"  [{i+1}/{len(segments)}] {seg['type']} sent")
+
+    # Send source URL
+    url_row = conn_url.execute(
+        """SELECT c.url FROM chapters c
+           JOIN sections s ON s.chapter_id = c.id
+           JOIN lessons l ON l.section_id = s.id
+           WHERE l.id = ?""",
+        (lesson_id,),
+    ).fetchone()
+    conn_url.close()
+    if url_row:
+        await bot.send_message(CHAT_ID, f"📖 Nguồn: {url_row['url']}")
+        sent += 1
+        print(f"  Source URL sent: {url_row['url']}")
 
     print(f"\n✅ Done — {sent} messages sent to chat {CHAT_ID}")
 

@@ -381,6 +381,19 @@ async def get_lessons_delivered_this_week(user_id: int) -> list[Lesson]:
         return [_row_to_lesson(r) for r in rows]
 
 
+async def get_lesson_source_url(lesson_id: int) -> Optional[str]:
+    """Return the Feynman Lectures chapter URL for a given lesson."""
+    async with get_db() as conn:
+        rows = await conn.execute_fetchall(
+            """SELECT c.url FROM chapters c
+               JOIN sections s ON s.chapter_id = c.id
+               JOIN lessons l ON l.section_id = s.id
+               WHERE l.id = ?""",
+            (lesson_id,)
+        )
+        return rows[0]["url"] if rows else None
+
+
 def _row_to_lesson(r) -> Lesson:
     # Handle approval_status column (may not exist on older DBs)
     approval_status = "pending"

@@ -198,6 +198,11 @@ async def send_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE, lesson
             except Exception as e:
                 log.warning("Failed to send math image %s: %s", seg["path"], e)
 
+    # Append source URL
+    source_url = await db.get_lesson_source_url(lesson.id)
+    if source_url:
+        await context.bot.send_message(chat_id, f"📖 Nguồn: {source_url}")
+
 
 async def send_quiz_questions(bot, chat_id: int, lesson: Lesson):
     """Send MCQ inline keyboard for quiz lesson."""
