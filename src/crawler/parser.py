@@ -201,9 +201,12 @@ def _build_section_text(section: dict, all_formulas: list[str]) -> tuple[str, li
 
     # Phase 1: locate the first occurrence of each formula in the original text.
     # We collect (start, end, formula) tuples without modifying the text yet.
+    # Use word-boundary anchors so single-char formulas (x, a, t, 1...) don't
+    # match inside regular English words (e.g. 'a' in 'about', 'x' in 'hexagonal').
     raw_matches: list[tuple[int, int, str]] = []
     for formula in all_formulas:
-        m = re.search(re.escape(formula), text)
+        pattern = r"(?<!\w)" + re.escape(formula) + r"(?!\w)"
+        m = re.search(pattern, text)
         if m:
             raw_matches.append((m.start(), m.end(), formula))
 
