@@ -178,9 +178,11 @@ def _generate_markdown(
 
     # Add source context
     if chapter and section:
+        source_url = chapter.get("url", "")
+        url_part = f" | [📖 Nguồn]({source_url})" if source_url else ""
         content_lines.append(
             f"*Source: Chapter {chapter['number']} - {chapter['title']} "
-            f"(Section {section.number})*\n"
+            f"(Section {section.number}){url_part}*\n"
         )
 
     content_lines.append(lesson.content_enhanced)
