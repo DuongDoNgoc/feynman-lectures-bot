@@ -13,7 +13,7 @@ import re
 from datetime import datetime
 from typing import Optional
 
-from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4 import BeautifulSoup, NavigableString, Tag  # NavigableString used in _element_text
 
 from src.knowledge import db
 from src.knowledge.models import Section
@@ -83,8 +83,28 @@ def extract_latex(html: str) -> dict:
 
 
 def _element_text(el: Tag) -> str:
-    """Extract plain text from element, collapsing whitespace."""
-    return " ".join(el.get_text().split())
+    """Extract plain text from element, collapsing whitespace.
+
+    get_text() skips <script> content, so we:
+    1. Replace each <script type="math/tex"> with a plain-text span holding the LaTeX.
+    2. Remove MathJax-rendered spans (they duplicate content from script tags).
+    Result: clean text with raw LaTeX strings inline (e.g. '\\tfrac{1}{2}kT'),
+    which _build_section_text() can then match and replace with {{FORMULA_N}}.
+    """
+    # Re-parse a copy so we don't mutate the shared parse tree
+    el_copy = BeautifulSoup(str(el), "html.parser")
+
+    # Step 1: Replace math script tags with NavigableString (plain text nodes).
+    # get_text() skips <script> content but includes NavigableString text directly.
+    for script in el_copy.find_all("script", type=re.compile(r"math/tex", re.I)):
+        latex = (script.string or "").strip()
+        script.replace_with(NavigableString(f" {latex} "))
+
+    # Step 2: Remove MathJax output spans (rendered duplicates, now redundant)
+    for span in el_copy.find_all("span", class_=re.compile(r"MathJax")):
+        span.decompose()
+
+    return " ".join(el_copy.get_text().split())
 
 
 def extract_sections(soup: BeautifulSoup) -> list[dict]:
