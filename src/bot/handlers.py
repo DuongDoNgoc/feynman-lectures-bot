@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 
 from telegram import (
     CallbackQuery,
@@ -31,6 +32,7 @@ from telegram.ext import ContextTypes
 from src.knowledge import db
 from src.knowledge.models import Lesson
 from src.llm.provider import LLMError, LLMRetryExhaustedError
+from src.monitoring.metrics import metrics
 
 log = logging.getLogger(__name__)
 
@@ -291,12 +293,14 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def next_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    metrics.record_bot_command("/next")
     await context.bot.send_chat_action(chat_id, ChatAction.TYPING)
 
     try:
         lesson = await db.get_next_lesson(chat_id)
     except Exception as e:
         log.error("DB error in next_handler: %s", e)
+        metrics.record_error("db_error")
         await update.message.reply_text(ERROR_MESSAGES["db_error"], parse_mode="HTML")
         return
 
@@ -310,8 +314,10 @@ async def next_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await send_lesson(update, context, lesson)
         await db.mark_sent(chat_id, lesson.id)
+        metrics.record_lesson_sent(lesson.lesson_type)
     except Exception as e:
         log.error("Failed to send lesson %d: %s", lesson.id, e)
+        metrics.record_error("lesson_send_error")
         await update.message.reply_text(
             "⚠️ Không thể gửi bài học. Vui lòng thử lại sau.",
             parse_mode="HTML"
@@ -585,12 +591,14 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_text = update.message.text
 
+    metrics.record_bot_command("message")
     await context.bot.send_chat_action(chat_id, ChatAction.TYPING)
 
     try:
         lesson = await db.get_current_lesson(chat_id)
     except Exception as e:
         log.error("DB error fetching lesson in message_handler: %s", e)
+        metrics.record_error("db_error")
         await update.message.reply_text(ERROR_MESSAGES["db_error"], parse_mode="HTML")
         return
 
@@ -608,22 +616,27 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     role = _config.get("user", {}).get("role", "engineer")
 
+    start_time = time.time()
     try:
         response = await _qa_llm.generate(
             system_prompt=QA_SYSTEM_PROMPT.format(role=role, lesson_snippet=lesson_snippet),
             user_prompt=user_text,
             history=history,
         )
+        metrics.record_llm_response((time.time() - start_time) * 1000)
     except LLMRetryExhaustedError as e:
         log.error("LLM retry exhausted in message_handler: %s", e)
+        metrics.record_error("llm_retry_exhausted")
         await update.message.reply_text(ERROR_MESSAGES["llm_unavailable"], parse_mode="HTML")
         return
     except LLMError as e:
         log.error("LLM error in message_handler: %s", e)
+        metrics.record_error("llm_error")
         await update.message.reply_text(ERROR_MESSAGES["llm_unavailable"], parse_mode="HTML")
         return
     except asyncio.TimeoutError:
         log.error("LLM timeout in message_handler")
+        metrics.record_error("llm_timeout")
         await update.message.reply_text(ERROR_MESSAGES["llm_timeout"], parse_mode="HTML")
         return
 
@@ -638,6 +651,31 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         log.warning("Failed to save conversation: %s", e)
 
 
+async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show bot status and metrics."""
+    snap = metrics.get_snapshot()
+
+    # Format uptime
+    hours = int(snap.uptime_seconds // 3600)
+    mins = int((snap.uptime_seconds % 3600) // 60)
+
+    status_text = (
+        f"📊 <b>Bot Status</b>\n\n"
+        f"⏱️ Uptime: {hours}h {mins}m\n"
+        f"📚 Lessons sent: {snap.lessons_sent_total}\n"
+        f"💬 Commands: {snap.bot_commands_total}\n"
+        f"❌ Errors: {snap.errors_total}\n"
+        f"⚡ LLM avg: {snap.llm_avg_response_ms:.0f}ms\n"
+        f"🗄️ DB avg: {snap.db_avg_response_ms:.0f}ms\n"
+    )
+
+    if snap.lessons_sent_by_type:
+        types = ", ".join(f"{k}:{v}" for k, v in snap.lessons_sent_by_type.items())
+        status_text += f"\n📝 By type: {types}"
+
+    await update.message.reply_text(status_text, parse_mode="HTML")
+
+
 async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "<b>Feynman Lectures Bot — Trợ giúp</b>\n\n"
@@ -649,7 +687,8 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/progress — Tiến độ học tập\n"
         "/schedule [h:m h:m h:m] — Xem/đặt lịch\n"
         "/role [mô tả] — Thay đổi vai trò\n"
-        "/search [từ khóa] — Tìm kiếm bài học\n\n"
+        "/search [từ khóa] — Tìm kiếm bài học\n"
+        "/status — Trạng thái bot\n\n"
         "💬 Gõ bất kỳ câu hỏi → AI trả lời dựa trên bài học hiện tại",
         parse_mode="HTML",
     )

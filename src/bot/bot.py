@@ -24,6 +24,7 @@ from src.bot.handlers import (
     schedule_handler,
     search_handler,
     start_handler,
+    status_handler,
 )
 from src.bot.scheduler import catchup_missed_lessons, setup_schedule
 from src.llm.provider import build_qa_provider
@@ -57,6 +58,7 @@ def create_app(config: dict):
     app.add_handler(CommandHandler("schedule", schedule_handler))
     app.add_handler(CommandHandler("role", role_handler))
     app.add_handler(CommandHandler("search", search_handler))
+    app.add_handler(CommandHandler("status", status_handler))
     app.add_handler(CommandHandler("help", help_handler))
 
     # ── Quiz inline-button callbacks ─────────────────────────────────────────

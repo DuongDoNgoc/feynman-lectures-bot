@@ -81,15 +81,15 @@
 - [x] Error recovery procedures documentation
 
 #### 2.3 Testing
-- [ ] Unit tests for each module
-- [ ] Integration tests for pipeline stages
+- [x] Unit tests for each module
+- [x] Integration tests for pipeline stages
 - [ ] Bot handler tests with mocked Telegram API
 - [ ] Performance benchmarks for enhancement
 
 #### 2.4 Monitoring
 - [x] Structured logging with file + console output
-- [ ] Metrics collection (lessons sent, errors, response times)
-- [ ] Health check endpoint
+- [x] Metrics collection (lessons sent, errors, response times)
+- [x] Health check endpoint
 - [ ] Database connection monitoring
 
 #### 2.5 Documentation
@@ -99,8 +99,8 @@
 - [x] Code Standards
 - [x] System Architecture
 - [x] Project Roadmap (this document)
-- [ ] Deployment Guide
-- [ ] Troubleshooting Guide
+- [x] Deployment Guide
+- [x] Troubleshooting Guide
 
 **Current Status**:
 - Pipeline stages 1-3 (crawl, parse, chunk): Complete
@@ -395,3 +395,6 @@
 | 2026-02-28 | 1.3.0 | **Phase 2.1 Complete**: Rolling enhancement pipeline with --batch flag, review.py CLI for batch approval, renderer gated to approved-only lessons, bot delivery approval gate, daily-enhance.sh workflow script. Ready for daily 10-lesson rolling enhancement. |
 | 2026-02-28 | 1.4.0 | **Phase 2.1.1 + 2.1.2 Complete**: (1) Formula rendering system—single (pdflatex) vs. combined blocks (xelatex+fontspec), _group_nearby_formulas(max_gap=300), block dict {type,path,start,end}, MD5 cache with cb_ prefix, _is_real_latex() filter, 50-block cap, DPI=1200. (2) Source URL delivery—db.get_lesson_source_url() JOIN pattern, send_lesson() appends "📖 Nguồn: {url}". Documentation updated in system-architecture.md, code-standards.md, codebase-summary.md, project-roadmap.md. |
 | 2026-02-28 | 1.5.0 | **Phase 2.2 Complete**: Error handling & monitoring. (1) LLM retry logic—exponential backoff in LLMProvider, configurable max_retries/retry_base_delay/retry_max_delay, LLMError/LLMRetryExhaustedError exceptions. (2) User-friendly error messages—Vietnamese error dict for all failure modes (LLM unavailable, timeout, DB error, no lesson, no quiz). (3) Troubleshooting guide—docs/troubleshooting-guide.md with recovery procedures for bot, pipeline, LLM API, database, crawler, renderer errors. |
+| 2026-02-28 | 1.6.0 | **Phase 2.3 Partial**: Testing infrastructure. (1) Added pytest, pytest-asyncio, pytest-cov to requirements. (2) Created tests/ directory with conftest.py fixtures. (3) Unit tests: test_llm_provider.py (14 tests for retry logic, backends, error types), test_bot_handlers.py (18 tests for message splitting, segments, error messages). (4) Integration tests: test_pipeline_integration.py (14 tests for parser, chunker, enhancer). Total: 46 tests passing. E2E tests remain in scripts/test-e2e.py. |
+| 2026-02-28 | 1.7.0 | **Phase 2.4 Partial**: Monitoring. (1) Metrics collection—src/monitoring/metrics.py with MetricsCollector class, tracks lessons sent (by type), errors (by category), LLM/DB response times, bot commands. (2) Health check—src/monitoring/health.py with check_database(), check_llm_api(), check_telegram_api(), full_health_check() for CLI/HTTP endpoints. (3) /status command—shows uptime, lessons sent, errors, avg response times. Remaining: DB connection pool monitoring. |
+| 2026-02-28 | 1.8.0 | **Phase 2.5 Complete**: Documentation. (1) Deployment Guide—docs/deployment-guide.md with prerequisites, environment setup, installation, configuration, process management (systemd), monitoring, backup/recovery, security checklist, upgrade procedure. (2) Troubleshooting Guide—created in Phase 2.2. All Phase 2 documentation now complete. |
