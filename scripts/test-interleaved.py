@@ -25,7 +25,7 @@ async def main():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     row = conn.execute(
-        "SELECT id, title, lesson_type, content_enhanced, math_images_json FROM lessons WHERE id=?",
+        "SELECT id, title, lesson_type, content_enhanced, math_images_json, diagram_images_json FROM lessons WHERE id=?",
         (lesson_id,),
     ).fetchone()
     # Keep conn open for source URL query below
@@ -71,6 +71,22 @@ async def main():
             except Exception as e:
                 print(f"  [!] Image failed: {e}")
         print(f"  [{i+1}/{len(segments)}] {seg['type']} sent")
+
+    # Send diagram images (Feynman Lectures source figures)
+    if row["diagram_images_json"]:
+        diagrams = json.loads(row["diagram_images_json"])
+        valid = [p for p in diagrams if os.path.exists(p)]
+        if valid:
+            await bot.send_message(CHAT_ID, "📐 *Hình minh họa:*", parse_mode="Markdown")
+            sent += 1
+            for path in valid:
+                try:
+                    await bot.send_photo(chat_id=CHAT_ID, photo=InputFile(open(path, "rb")))
+                    sent += 1
+                    print(f"  [diagram] {path}")
+                except Exception as e:
+                    print(f"  [!] Diagram failed {path}: {e}")
+        print(f"  Diagrams: {len(valid)} sent (of {len(diagrams)} in DB)")
 
     # Send source URL
     url_row = conn_url.execute(

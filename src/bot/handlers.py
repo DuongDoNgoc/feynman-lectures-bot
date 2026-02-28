@@ -233,6 +233,21 @@ async def send_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE, lesson
             except Exception as e:
                 log.warning("Failed to send math image %s: %s", seg["path"], e)
 
+    # Send diagram images (source figures from Feynman Lectures)
+    if lesson.diagram_images_json:
+        try:
+            diagrams = json.loads(lesson.diagram_images_json)
+            valid_diagrams = [p for p in diagrams if os.path.exists(p)]
+            if valid_diagrams:
+                await context.bot.send_message(chat_id, "📐 *Hình minh họa:*", parse_mode="Markdown")
+                for path in valid_diagrams:
+                    await context.bot.send_photo(
+                        chat_id=chat_id,
+                        photo=InputFile(open(path, "rb")),
+                    )
+        except Exception as e:
+            log.warning("Failed to send diagram images for lesson %d: %s", lesson.id, e)
+
     # Append source URL
     source_url = await db.get_lesson_source_url(lesson.id)
     if source_url:

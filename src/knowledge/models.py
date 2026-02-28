@@ -43,6 +43,7 @@ class Chunk:
     """Intermediate: not persisted; produced by chunker, consumed by enhancer."""
     text: str
     formulas: list = field(default_factory=list)
+    image_refs: list = field(default_factory=list)   # web-relative src paths from sections
     word_count: int = 0
     section_ids: list = field(default_factory=list)
     # Populated from first section in chunk for title generation
@@ -62,6 +63,7 @@ class Lesson:
     examples_json: Optional[str] = None
     quiz_json: Optional[str] = None
     math_images_json: Optional[str] = None
+    diagram_images_json: Optional[str] = None   # JSON list of local PNG paths for source diagrams
     enhancement_status: str = "pending"   # pending | in_progress | completed
     approval_status: str = "pending"      # pending | approved | rejected
     created_at: Optional[str] = None

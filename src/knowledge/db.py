@@ -120,6 +120,13 @@ async def init_db(config: Optional[dict] = None):
         except aiosqlite.OperationalError:
             pass  # Column already exists
 
+        # Migration: Add diagram_images_json column if not exists
+        try:
+            await conn.execute("ALTER TABLE lessons ADD COLUMN diagram_images_json TEXT DEFAULT NULL")
+            log.info("Added diagram_images_json column to lessons table")
+        except aiosqlite.OperationalError:
+            pass  # Column already exists
+
         await conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_lessons_approval
             ON lessons(approval_status)
@@ -241,11 +248,11 @@ async def insert_lesson(lesson: Lesson) -> int:
         cursor = await conn.execute(
             """INSERT INTO lessons
                (section_id, lesson_type, sequence, title, content_enhanced,
-                examples_json, quiz_json, math_images_json, enhancement_status)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                examples_json, quiz_json, math_images_json, diagram_images_json, enhancement_status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (lesson.section_id, lesson.lesson_type, lesson.sequence, lesson.title,
              lesson.content_enhanced, lesson.examples_json, lesson.quiz_json,
-             lesson.math_images_json, lesson.enhancement_status)
+             lesson.math_images_json, lesson.diagram_images_json, lesson.enhancement_status)
         )
         await conn.commit()
         return cursor.lastrowid
@@ -268,6 +275,16 @@ async def update_lesson_content(lesson: Lesson):
                WHERE id = ?""",
             (lesson.title, lesson.content_enhanced, lesson.examples_json,
              lesson.quiz_json, lesson.math_images_json, lesson.id)
+        )
+        await conn.commit()
+
+
+async def update_lesson_diagram_images(lesson_id: int, diagram_images_json: str):
+    """Update diagram_images_json for a lesson (used by backfill script)."""
+    async with get_db() as conn:
+        await conn.execute(
+            "UPDATE lessons SET diagram_images_json = ? WHERE id = ?",
+            (diagram_images_json, lesson_id)
         )
         await conn.commit()
 
@@ -402,12 +419,19 @@ def _row_to_lesson(r) -> Lesson:
     except (KeyError, IndexError):
         pass
 
+    diagram_images_json = None
+    try:
+        diagram_images_json = r["diagram_images_json"]
+    except (KeyError, IndexError):
+        pass
+
     return Lesson(
         id=r["id"], section_id=r["section_id"], lesson_type=r["lesson_type"],
         sequence=r["sequence"], title=r["title"],
         content_enhanced=r["content_enhanced"],
         examples_json=r["examples_json"], quiz_json=r["quiz_json"],
         math_images_json=r["math_images_json"],
+        diagram_images_json=diagram_images_json,
         enhancement_status=r["enhancement_status"], approval_status=approval_status,
         created_at=r["created_at"]
     )

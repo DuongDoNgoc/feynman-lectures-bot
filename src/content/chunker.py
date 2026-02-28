@@ -7,6 +7,7 @@ Rules:
 - Heading tags = preferred chunk boundaries
 - Stores stub lessons (pending enhancement) in DB for each chunk × lesson_type
 """
+import json
 import logging
 from dataclasses import dataclass, field
 
@@ -47,6 +48,7 @@ def chunk_sections(
 
         current.text += section.content_text + "\n\n"
         current.formulas.extend(section.latex_formulas)
+        current.image_refs.extend(r for r in section.image_refs if r not in current.image_refs)
         current.word_count += words
         current.section_ids.append(section.id)
 
@@ -60,6 +62,7 @@ def chunk_sections(
             prev = merged[-1]
             prev.text += chunk.text
             prev.formulas.extend(chunk.formulas)
+            prev.image_refs.extend(r for r in chunk.image_refs if r not in prev.image_refs)
             prev.word_count += chunk.word_count
             prev.section_ids.extend(chunk.section_ids)
         else:
@@ -103,6 +106,7 @@ async def run_chunker(config: dict):
         # Build meaningful title from chapter/section metadata
         base_title = _build_chunk_title(chunk, seq)
 
+        diagram_json = json.dumps(chunk.image_refs) if chunk.image_refs else None
         for lesson_type in LESSON_TYPES:
             lesson = Lesson(
                 id=None,
@@ -111,6 +115,7 @@ async def run_chunker(config: dict):
                 sequence=seq,
                 title=f"{base_title} — {lesson_type}",
                 content_enhanced=chunk.text,  # raw text; replaced after enhancement
+                diagram_images_json=diagram_json,
                 enhancement_status="pending",
             )
             await db.insert_lesson(lesson)
