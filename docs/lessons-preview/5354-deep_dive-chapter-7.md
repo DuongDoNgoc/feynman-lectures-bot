@@ -1,8 +1,8 @@
 ---
 lesson_id: 5354
 lesson_type: deep_dive
-approval_status: pending
-exported_at: "2026-02-28T11:31:20.570665+00:00"
+approval_status: approved
+exported_at: "2026-02-28T14:08:59.508008+00:00"
 content_hash: 415cae2174ea
 chapter_number: 7
 chapter_title: Chapter 7

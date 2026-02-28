@@ -2,7 +2,7 @@
 lesson_id: 5306
 lesson_type: deep_dive
 approval_status: approved
-exported_at: "2026-02-28T11:31:19.611442+00:00"
+exported_at: "2026-02-28T14:08:58.531560+00:00"
 content_hash: a3b762d87fb5
 chapter_number: 1
 chapter_title: "https://www.feynmanlectures.caltech.edu/I_01.html"

@@ -2,7 +2,7 @@
 lesson_id: 5302
 lesson_type: concept
 approval_status: approved
-exported_at: "2026-02-28T11:31:19.551494+00:00"
+exported_at: "2026-02-28T14:08:58.472595+00:00"
 content_hash: 93df1fb64c35
 chapter_number: 1
 chapter_title: "https://www.feynmanlectures.caltech.edu/I_01.html"

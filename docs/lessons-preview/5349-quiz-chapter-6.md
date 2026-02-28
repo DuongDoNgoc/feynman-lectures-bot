@@ -1,8 +1,8 @@
 ---
 lesson_id: 5349
 lesson_type: quiz
-approval_status: pending
-exported_at: "2026-02-28T11:31:20.434805+00:00"
+approval_status: approved
+exported_at: "2026-02-28T14:08:59.368970+00:00"
 content_hash: 6987cfcc5398
 chapter_number: 6
 chapter_title: Chapter 6

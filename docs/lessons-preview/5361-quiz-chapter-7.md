@@ -1,8 +1,8 @@
 ---
 lesson_id: 5361
 lesson_type: quiz
-approval_status: pending
-exported_at: "2026-02-28T11:31:20.686972+00:00"
+approval_status: approved
+exported_at: "2026-02-28T14:08:59.624063+00:00"
 content_hash: 957a043c76c4
 chapter_number: 7
 chapter_title: Chapter 7
