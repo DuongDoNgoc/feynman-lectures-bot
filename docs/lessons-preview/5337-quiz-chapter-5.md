@@ -2,7 +2,7 @@
 lesson_id: 5337
 lesson_type: quiz
 approval_status: approved
-exported_at: "2026-02-28T10:51:40.215108+00:00"
+exported_at: "2026-02-28T11:31:20.123998+00:00"
 content_hash: 83acb95fdff6
 chapter_number: 5
 chapter_title: Chapter 5

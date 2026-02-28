@@ -2,7 +2,7 @@
 lesson_id: 5307
 lesson_type: quiz
 approval_status: approved
-exported_at: "2026-02-28T10:51:39.670964+00:00"
+exported_at: "2026-02-28T11:31:19.626389+00:00"
 content_hash: f72b1ba9875d
 chapter_number: 1
 chapter_title: "https://www.feynmanlectures.caltech.edu/I_01.html"
