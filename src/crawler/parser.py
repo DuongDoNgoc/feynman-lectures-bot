@@ -191,21 +191,46 @@ def _collect_between_headings(
 
 
 def _build_section_text(section: dict, all_formulas: list[str]) -> tuple[str, list[str]]:
-    """Build plain text with {{FORMULA_N}} placeholders. Returns (text, used_formulas)."""
+    """Build plain text with {{FORMULA_N}} placeholders. Returns (text, used_formulas).
+
+    Uses a single-pass replacement to prevent already-inserted placeholders from
+    being matched again by subsequent formula patterns (which caused nested corruption
+    like {{FORM{{FORMULA_14}}_{{FORMULA_17}}}}LA_0}}).
+    """
     text = " ".join(section["text_parts"])
 
-    # Replace LaTeX formula occurrences with placeholders
-    used_formulas = []
-    formula_idx = 0
+    # Phase 1: locate the first occurrence of each formula in the original text.
+    # We collect (start, end, formula) tuples without modifying the text yet.
+    raw_matches: list[tuple[int, int, str]] = []
     for formula in all_formulas:
-        escaped = re.escape(formula)
-        if re.search(escaped, text):
-            placeholder = f"{{{{FORMULA_{formula_idx}}}}}"
-            text = re.sub(escaped, placeholder, text, count=1)
-            used_formulas.append(formula)
-            formula_idx += 1
+        m = re.search(re.escape(formula), text)
+        if m:
+            raw_matches.append((m.start(), m.end(), formula))
 
-    return text.strip(), used_formulas
+    if not raw_matches:
+        return text.strip(), []
+
+    # Phase 2: sort by position and drop overlapping spans (keep first).
+    raw_matches.sort(key=lambda x: x[0])
+    non_overlapping: list[tuple[int, int, str]] = []
+    prev_end = -1
+    for start, end, formula in raw_matches:
+        if start >= prev_end:
+            non_overlapping.append((start, end, formula))
+            prev_end = end
+
+    # Phase 3: build result in one sweep — no re-scanning of replaced text.
+    result: list[str] = []
+    used_formulas: list[str] = []
+    cursor = 0
+    for idx, (start, end, formula) in enumerate(non_overlapping):
+        result.append(text[cursor:start])
+        result.append(f"{{{{FORMULA_{idx}}}}}")
+        used_formulas.append(formula)
+        cursor = end
+    result.append(text[cursor:])
+
+    return "".join(result).strip(), used_formulas
 
 
 def parse_chapter(raw_html: str, image_map: dict[str, str]) -> list[Section]:
