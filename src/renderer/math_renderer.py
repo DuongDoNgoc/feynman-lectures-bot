@@ -185,8 +185,8 @@ def _markdown_table_to_latex(md_table: str) -> str | None:
 
     def convert_cell(cell):
         # Escape LaTeX specials first (before markdown conversion inserts backslashes)
-        # This prevents double-escaping and handles $ in cell content safely
-        for ch in ['$', '&', '%', '#', '_']:
+        # Note: do NOT escape $ — cells may contain $...$  inline math (e.g. $^{12}C$)
+        for ch in ['&', '%', '#', '_']:
             cell = re.sub(r'(?<!\\)' + re.escape(ch), '\\' + ch, cell)
         # Apply markdown bold/italic after escaping (* is not a LaTeX special)
         cell = re.sub(r'\*\*(.+?)\*\*', r'\\textbf{\1}', cell)
