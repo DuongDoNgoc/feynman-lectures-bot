@@ -59,7 +59,7 @@ src/
 **Purpose**: Transform raw content into enhanced lessons
 
 **Files**:
-- `chunker.py` (98 lines): Section to chunk conversion
+- `chunker.py` (120+ lines): Section to chunk conversion with semantic title generation
 - `enhancer.py` (286 lines): Claude Code session workflow for enhancement
 - `preview_exporter.py` (287 lines): Export lessons to markdown for review
 
@@ -67,8 +67,8 @@ src/
 
 | File | Function | Purpose |
 |------|----------|---------|
-| `chunker.py` | `run_chunker(config)` | Split sections into chunks |
-| `chunker.py` | `split_section_to_chunks()` | 800-1200 word splitting |
+| `chunker.py` | `run_chunker(config)` | Split sections into chunks with target 2000w |
+| `chunker.py` | `chunk_sections()` | Per-chapter semantic chunking, generates titles "ChN-M: Title — type" |
 | `enhancer.py` | `generate_prompts(config)` | Create pending_prompts.jsonl |
 | `enhancer.py` | `import_outputs(config)` | Import enhanced_outputs.jsonl |
 | `enhancer.py` | `run_enhancer(config, import_mode)` | Orchestrator |
@@ -77,6 +77,8 @@ src/
 | `preview_exporter.py` | `export_lesson(lesson_id)` | Export single lesson to markdown |
 | `preview_exporter.py` | `export_all_lessons()` | Export all completed lessons |
 | `preview_exporter.py` | `export_lessons_by_type(type)` | Export by lesson type |
+
+**Chunker Update (2026-02-28)**: Now processes per-chapter sections with target 2000-word lessons. Title format: "ChN-M: Section Title — type" (e.g., "Ch1-2: Conservation of Energy — concept"). Results: 843 lessons total (was 282), meaningful topic-based titles.
 
 **Enhancement Workflow**:
 - **Step 1**: `generate_prompts()` writes `data/pending_prompts.jsonl`
@@ -95,7 +97,7 @@ src/
 
 **Files**:
 - `scraper.py` (243 lines): Playwright-based stealth crawler
-- `parser.py` (227 lines): HTML/LaTeX extraction
+- `parser.py` (250+ lines): HTML/LaTeX extraction with recursive heading detection
 
 **Key Functions**:
 
@@ -107,8 +109,10 @@ src/
 | `scraper.py` | `download_images()` | Save referenced images |
 | `scraper.py` | `create_browser()` | Context manager with stealth |
 | `parser.py` | `run_parser(config)` | Parse all uncrawled chapters |
-| `parser.py` | `parse_chapter_html()` | Extract sections by heading |
+| `parser.py` | `extract_sections()` | Recursive h2/h3 heading detection via `find_all()` |
 | `parser.py` | `extract_latex_formulas()` | Multi-method formula extraction |
+
+**Parser Fix (2026-02-28)**: Now uses `content.find_all(HEADING_TAGS)` recursive search instead of direct children iteration, detecting h2/h3 headings at any nesting depth. Results: 607 sections across 94 chapters (~6.5/chapter), up from 94 sections (1/chapter).
 
 **Anti-Detection Features**:
 - Random user agents
@@ -204,16 +208,20 @@ src/
 
 ---
 
-## Current Data Status (2026-02-27)
+## Current Data Status (2026-02-28)
 
-**Database**: `data/feynman.db` - 84 MB
+**Database**: `data/feynman.db`
+- **Total Lessons**: 843 lessons (up from 282 after parser/chunker fix)
+- **Sections**: 607 sections across 94 chapters (avg 6.5/chapter, was 1)
 - **Enhanced Lessons**: 19 completed lessons in `enhanced_outputs.jsonl`
-- **Pending Lessons**: 545 lessons awaiting enhancement in `pending_prompts.jsonl`
-- **Rendered Images**: 263 PNG formula images in `data/images/`
+- **Pending Lessons**: 824 lessons awaiting enhancement in `pending_prompts.jsonl`
+- **Rendered Images**: 263+ PNG formula images in `data/images/`
 
 **Processing Progress**:
-- Enhancement: ~3.4% complete (19/564 lessons)
-- Rendering: 263 formulas rendered
+- Parser: Sections per chapter increased from 1 → 6.5 (recursive h2/h3 detection)
+- Chunker: Lessons increased from 282 → 843 with semantic titles
+- Enhancement: ~2.3% complete (19/843 lessons)
+- Rendering: 263+ formulas rendered
 - Pipeline: Stages 1-3 (crawl, parse, chunk) complete
 - Enhancement: In progress (Claude Code workflow)
 

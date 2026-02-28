@@ -1,12 +1,13 @@
 ---
 title: "Fix Chunker/Parser Issue - Section Detection & Lesson Generation"
 description: "Fix parser to detect nested h3 headings and optimize chunker for proper lesson boundaries"
-status: pending
+status: completed
 priority: P1
 effort: 6h
 branch: main
 tags: [parser, chunker, content-pipeline, bugfix]
 created: 2026-02-27
+completed: 2026-02-28
 ---
 
 # Fix Chunker/Parser Issue - Implementation Plan

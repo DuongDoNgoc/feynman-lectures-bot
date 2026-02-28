@@ -158,13 +158,13 @@ flowchart LR
     end
 
     subgraph "Stage 2: Parse"
-        B1[chapters.raw_html] --> B2[BeautifulSoup Parser]
-        B2 --> B3[sections table]
+        B1[chapters.raw_html] --> B2[Recursive h2/h3 Detection]
+        B2 --> B3[sections table<br/>607 sections, 6.5/ch avg]
     end
 
     subgraph "Stage 3: Chunk"
-        C1[sections.content_text] --> C2[Chunker]
-        C2 --> C3[lessons stubs]
+        C1[sections.content_text] --> C2[Per-Chapter Chunker<br/>Target 2000w]
+        C2 --> C3[lessons stubs<br/>843 total, semantic titles]
     end
 
     subgraph "Stage 4: Enhance"

@@ -82,8 +82,10 @@
 
 **Current Status**:
 - Pipeline stages 1-3 (crawl, parse, chunk): Complete
-- Enhancement stage: 19 lessons enhanced, 545 pending
-- Rendering stage: 263 formulas rendered
+  - Parser: Recursive h2/h3 detection working (607 sections, avg 6.5/chapter)
+  - Chunker: Semantic titles "ChN-M: Title — type" (843 lessons total)
+- Enhancement stage: 19 lessons enhanced, 824 pending
+- Rendering stage: 263+ formulas rendered
 - Bot: Operational with all 10 commands
 
 **Success Criteria**:
@@ -367,3 +369,4 @@
 |------|---------|---------|
 | 2025-02-25 | 1.0.0 | Initial roadmap document |
 | 2026-02-28 | 1.1.0 | Added preview & approval workflow; removed "no manual review" from technical debt |
+| 2026-02-28 | 1.2.0 | **Parser fix**: Recursive h2/h3 detection (607 sections, 6.5/chapter avg). **Chunker update**: Semantic titles "ChN-M: Title — type" (843 total lessons, up from 282). Enhanced lesson count: 19/843 (~2.3%). |
