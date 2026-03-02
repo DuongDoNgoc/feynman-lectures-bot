@@ -9,11 +9,15 @@
 set -e
 cd "$(dirname "$0")"
 
+# Use project venv if available, else fall back to system python3
+PYTHON="./.venv/bin/python3"
+[[ -x "$PYTHON" ]] || PYTHON="python3"
+
 BATCH=${1:-10}
 
 # Stats-only mode
 if [[ "$1" == "--stats" ]]; then
-    python3 review.py stats
+    $PYTHON review.py stats
     exit 0
 fi
 
@@ -24,11 +28,11 @@ echo "════════════════════════�
 
 # Step 0: Current stats
 echo ""
-python3 review.py stats
+$PYTHON review.py stats
 
 # Step 1: Generate prompts for next batch (auto-clears stale files)
 echo "📝 Step 1/5 — Generating prompts for $BATCH lessons..."
-python3 pipeline.py --stage enhance --batch "$BATCH"
+$PYTHON pipeline.py --stage enhance --batch "$BATCH"
 
 # Step 2: Claude Session (manual pause)
 echo ""
@@ -48,28 +52,28 @@ read -rp "  Press ENTER when Claude has finished writing outputs... "
 # Step 3: Import enhanced results
 echo ""
 echo "📥 Step 2/5 — Importing enhanced outputs..."
-python3 pipeline.py --stage enhance --import
+$PYTHON pipeline.py --stage enhance --import
 
 # Step 4: Export previews for review
 echo ""
 echo "📄 Step 3/5 — Exporting lesson previews..."
-python3 pipeline.py --stage preview
+$PYTHON pipeline.py --stage preview
 
 # Step 5: Human review (interactive)
 echo ""
 echo "👁  Step 4/5 — Human review..."
-python3 review.py approve-batch
+$PYTHON review.py approve-batch
 
 # Step 6: Render approved lessons
 echo ""
 echo "🎨 Step 5/5 — Rendering approved lessons..."
-python3 pipeline.py --stage render
+$PYTHON pipeline.py --stage render
 
 # Done
 echo ""
 echo "════════════════════════════════════════════════════"
 echo "  ✅ Daily cycle complete!"
 echo ""
-python3 review.py stats
+$PYTHON review.py stats
 echo "  Telegram bot is live with new approved lessons."
 echo "════════════════════════════════════════════════════"
