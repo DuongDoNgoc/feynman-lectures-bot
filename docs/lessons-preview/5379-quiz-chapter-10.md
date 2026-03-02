@@ -1,8 +1,8 @@
 ---
 lesson_id: 5379
 lesson_type: quiz
-approval_status: pending
-exported_at: "2026-02-28T14:09:00.172646+00:00"
+approval_status: approved
+exported_at: "2026-03-02T15:10:27.926618+00:00"
 content_hash: 79684e8771b0
 chapter_number: 10
 chapter_title: Chapter 10

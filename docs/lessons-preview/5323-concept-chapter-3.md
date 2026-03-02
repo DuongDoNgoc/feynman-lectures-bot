@@ -2,7 +2,7 @@
 lesson_id: 5323
 lesson_type: concept
 approval_status: approved
-exported_at: "2026-02-28T14:08:58.809953+00:00"
+exported_at: "2026-03-02T15:10:26.741408+00:00"
 content_hash: ed302cd1daac
 chapter_number: 3
 chapter_title: Chapter 3

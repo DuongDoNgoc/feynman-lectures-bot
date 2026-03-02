@@ -1,8 +1,8 @@
 ---
 lesson_id: 5377
 lesson_type: concept
-approval_status: pending
-exported_at: "2026-02-28T14:09:00.128401+00:00"
+approval_status: approved
+exported_at: "2026-03-02T15:10:27.891338+00:00"
 content_hash: 678a8701bfce
 chapter_number: 10
 chapter_title: Chapter 10

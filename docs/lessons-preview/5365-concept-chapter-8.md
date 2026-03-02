@@ -1,8 +1,8 @@
 ---
 lesson_id: 5365
 lesson_type: concept
-approval_status: pending
-exported_at: "2026-02-28T14:08:59.746832+00:00"
+approval_status: approved
+exported_at: "2026-03-02T15:10:27.555885+00:00"
 content_hash: aecbe003085d
 chapter_number: 8
 chapter_title: Chapter 8

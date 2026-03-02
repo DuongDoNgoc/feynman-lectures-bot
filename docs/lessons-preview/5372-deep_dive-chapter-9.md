@@ -1,8 +1,8 @@
 ---
 lesson_id: 5372
 lesson_type: deep_dive
-approval_status: pending
-exported_at: "2026-02-28T14:09:00.002697+00:00"
+approval_status: approved
+exported_at: "2026-03-02T15:10:27.785126+00:00"
 content_hash: c0daa38e68e2
 chapter_number: 9
 chapter_title: Chapter 9

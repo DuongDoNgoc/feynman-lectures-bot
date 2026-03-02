@@ -1,8 +1,8 @@
 ---
 lesson_id: 5362
 lesson_type: concept
-approval_status: pending
-exported_at: "2026-02-28T14:08:59.658819+00:00"
+approval_status: approved
+exported_at: "2026-03-02T15:10:27.477936+00:00"
 content_hash: cb28cf8bad28
 chapter_number: 8
 chapter_title: Chapter 8

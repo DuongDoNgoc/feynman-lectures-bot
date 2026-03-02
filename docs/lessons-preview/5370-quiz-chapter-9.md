@@ -1,8 +1,8 @@
 ---
 lesson_id: 5370
 lesson_type: quiz
-approval_status: pending
-exported_at: "2026-02-28T14:08:59.925396+00:00"
+approval_status: approved
+exported_at: "2026-03-02T15:10:27.716349+00:00"
 content_hash: aac2b3731e67
 chapter_number: 9
 chapter_title: Chapter 9
