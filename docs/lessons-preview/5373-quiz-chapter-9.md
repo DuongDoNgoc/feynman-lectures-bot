@@ -2,7 +2,7 @@
 lesson_id: 5373
 lesson_type: quiz
 approval_status: approved
-exported_at: "2026-03-02T15:10:27.819169+00:00"
+exported_at: "2026-03-03T15:33:03.476541+00:00"
 content_hash: 3d9a4f9517d7
 chapter_number: 9
 chapter_title: Chapter 9

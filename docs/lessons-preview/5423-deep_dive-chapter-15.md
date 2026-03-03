@@ -2,7 +2,7 @@
 lesson_id: 5423
 lesson_type: deep_dive
 approval_status: approved
-exported_at: "2026-03-02T15:10:29.058761+00:00"
+exported_at: "2026-03-03T15:33:04.690704+00:00"
 content_hash: a03a848b947c
 chapter_number: 15
 chapter_title: Chapter 15

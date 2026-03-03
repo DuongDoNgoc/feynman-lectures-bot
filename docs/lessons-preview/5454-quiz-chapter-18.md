@@ -2,7 +2,7 @@
 lesson_id: 5454
 lesson_type: quiz
 approval_status: approved
-exported_at: "2026-03-02T15:10:29.837323+00:00"
+exported_at: "2026-03-03T15:33:05.419640+00:00"
 content_hash: c0b1c3d0dd79
 chapter_number: 18
 chapter_title: Chapter 18

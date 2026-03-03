@@ -2,7 +2,7 @@
 lesson_id: 5406
 lesson_type: quiz
 approval_status: approved
-exported_at: "2026-03-02T15:10:28.623371+00:00"
+exported_at: "2026-03-03T15:33:04.256556+00:00"
 content_hash: a5d3462dac22
 chapter_number: 13
 chapter_title: Chapter 13

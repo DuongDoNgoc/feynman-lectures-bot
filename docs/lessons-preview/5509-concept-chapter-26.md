@@ -1,8 +1,8 @@
 ---
 lesson_id: 5509
 lesson_type: concept
-approval_status: pending
-exported_at: "2026-03-02T15:10:31.362233+00:00"
+approval_status: approved
+exported_at: "2026-03-03T15:33:06.827876+00:00"
 content_hash: 9136c30fb6d6
 chapter_number: 26
 chapter_title: Chapter 26

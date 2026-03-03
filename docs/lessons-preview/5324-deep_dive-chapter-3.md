@@ -2,7 +2,7 @@
 lesson_id: 5324
 lesson_type: deep_dive
 approval_status: approved
-exported_at: "2026-03-02T15:10:26.753888+00:00"
+exported_at: "2026-03-03T15:32:59.678485+00:00"
 content_hash: 27c83d9b4e5b
 chapter_number: 3
 chapter_title: Chapter 3

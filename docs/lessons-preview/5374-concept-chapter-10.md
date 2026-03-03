@@ -2,7 +2,7 @@
 lesson_id: 5374
 lesson_type: concept
 approval_status: approved
-exported_at: "2026-03-02T15:10:27.839232+00:00"
+exported_at: "2026-03-03T15:33:03.495512+00:00"
 content_hash: 0b59d8672bb2
 chapter_number: 10
 chapter_title: Chapter 10

@@ -1,8 +1,8 @@
 ---
 lesson_id: 5494
 lesson_type: concept
-approval_status: pending
-exported_at: "2026-03-02T15:10:31.028666+00:00"
+approval_status: approved
+exported_at: "2026-03-03T15:33:06.490820+00:00"
 content_hash: 1f75aebb12e4
 chapter_number: 24
 chapter_title: Chapter 24

@@ -2,7 +2,7 @@
 lesson_id: 5447
 lesson_type: deep_dive
 approval_status: approved
-exported_at: "2026-03-02T15:10:29.688643+00:00"
+exported_at: "2026-03-03T15:33:05.274563+00:00"
 content_hash: dcabd18880df
 chapter_number: 17
 chapter_title: Chapter 17

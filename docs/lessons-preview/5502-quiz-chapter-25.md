@@ -1,8 +1,8 @@
 ---
 lesson_id: 5502
 lesson_type: quiz
-approval_status: pending
-exported_at: "2026-03-02T15:10:31.210362+00:00"
+approval_status: approved
+exported_at: "2026-03-03T15:33:06.675658+00:00"
 content_hash: 7321222f368b
 chapter_number: 25
 chapter_title: Chapter 25

@@ -1,8 +1,8 @@
 ---
 lesson_id: 5514
 lesson_type: quiz
-approval_status: pending
-exported_at: "2026-03-02T15:10:31.466276+00:00"
+approval_status: approved
+exported_at: "2026-03-03T15:33:06.930393+00:00"
 content_hash: c1a1c3200106
 chapter_number: 26
 chapter_title: Chapter 26

@@ -2,7 +2,7 @@
 lesson_id: 5328
 lesson_type: quiz
 approval_status: approved
-exported_at: "2026-03-02T15:10:26.805349+00:00"
+exported_at: "2026-03-03T15:32:59.733172+00:00"
 content_hash: d4e3b04e294a
 chapter_number: 3
 chapter_title: Chapter 3

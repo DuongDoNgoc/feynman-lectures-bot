@@ -1,8 +1,8 @@
 ---
 lesson_id: 5487
 lesson_type: quiz
-approval_status: pending
-exported_at: "2026-03-02T15:10:30.837425+00:00"
+approval_status: approved
+exported_at: "2026-03-03T15:33:06.309116+00:00"
 content_hash: ebbb12b7ae69
 chapter_number: 23
 chapter_title: Chapter 23

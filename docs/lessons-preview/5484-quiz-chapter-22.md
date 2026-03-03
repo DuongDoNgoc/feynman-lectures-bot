@@ -2,7 +2,7 @@
 lesson_id: 5484
 lesson_type: quiz
 approval_status: approved
-exported_at: "2026-03-02T15:10:30.743025+00:00"
+exported_at: "2026-03-03T15:33:06.223532+00:00"
 content_hash: 0f3f88a72f9b
 chapter_number: 22
 chapter_title: Chapter 22

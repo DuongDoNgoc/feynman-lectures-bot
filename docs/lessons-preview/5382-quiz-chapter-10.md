@@ -2,7 +2,7 @@
 lesson_id: 5382
 lesson_type: quiz
 approval_status: approved
-exported_at: "2026-03-02T15:10:27.979380+00:00"
+exported_at: "2026-03-03T15:33:03.637687+00:00"
 content_hash: a1a39a1187f5
 chapter_number: 10
 chapter_title: Chapter 10

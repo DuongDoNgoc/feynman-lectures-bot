@@ -1,8 +1,8 @@
 ---
 lesson_id: 5524
 lesson_type: concept
-approval_status: pending
-exported_at: "2026-03-02T15:10:31.690319+00:00"
+approval_status: approved
+exported_at: "2026-03-03T15:33:07.140924+00:00"
 content_hash: c8df66cdc48c
 chapter_number: 28
 chapter_title: Chapter 28

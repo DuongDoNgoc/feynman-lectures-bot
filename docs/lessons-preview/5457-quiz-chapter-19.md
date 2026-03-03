@@ -2,7 +2,7 @@
 lesson_id: 5457
 lesson_type: quiz
 approval_status: approved
-exported_at: "2026-03-02T15:10:29.914631+00:00"
+exported_at: "2026-03-03T15:33:05.492167+00:00"
 content_hash: 09d72692c703
 chapter_number: 19
 chapter_title: Chapter 19

@@ -2,7 +2,7 @@
 lesson_id: 5390
 lesson_type: deep_dive
 approval_status: approved
-exported_at: "2026-03-02T15:10:28.234161+00:00"
+exported_at: "2026-03-03T15:33:03.881717+00:00"
 content_hash: 9cfcde6c0b5e
 chapter_number: 11
 chapter_title: Chapter 11

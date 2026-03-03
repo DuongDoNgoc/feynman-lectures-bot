@@ -2,7 +2,7 @@
 lesson_id: 5370
 lesson_type: quiz
 approval_status: approved
-exported_at: "2026-03-02T15:10:27.716349+00:00"
+exported_at: "2026-03-03T15:33:00.637796+00:00"
 content_hash: aac2b3731e67
 chapter_number: 9
 chapter_title: Chapter 9

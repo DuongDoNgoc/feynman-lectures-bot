@@ -2,7 +2,7 @@
 lesson_id: 5439
 lesson_type: quiz
 approval_status: approved
-exported_at: "2026-03-02T15:10:29.449927+00:00"
+exported_at: "2026-03-03T15:33:05.072434+00:00"
 content_hash: caf215109506
 chapter_number: 16
 chapter_title: Chapter 16

@@ -1,8 +1,8 @@
 ---
 lesson_id: 5498
 lesson_type: deep_dive
-approval_status: pending
-exported_at: "2026-03-02T15:10:31.123250+00:00"
+approval_status: approved
+exported_at: "2026-03-03T15:33:06.583935+00:00"
 content_hash: 12e94c153d90
 chapter_number: 25
 chapter_title: Chapter 25

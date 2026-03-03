@@ -2,7 +2,7 @@
 lesson_id: 5414
 lesson_type: deep_dive
 approval_status: approved
-exported_at: "2026-03-02T15:10:28.846471+00:00"
+exported_at: "2026-03-03T15:33:04.479105+00:00"
 content_hash: 8f97b8a36b5a
 chapter_number: 14
 chapter_title: Chapter 14

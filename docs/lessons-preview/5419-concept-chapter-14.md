@@ -2,7 +2,7 @@
 lesson_id: 5419
 lesson_type: concept
 approval_status: approved
-exported_at: "2026-03-02T15:10:28.957521+00:00"
+exported_at: "2026-03-03T15:33:04.592357+00:00"
 content_hash: 5e93dc0a01a6
 chapter_number: 14
 chapter_title: Chapter 14

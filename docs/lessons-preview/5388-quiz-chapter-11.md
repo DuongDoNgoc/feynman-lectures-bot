@@ -2,7 +2,7 @@
 lesson_id: 5388
 lesson_type: quiz
 approval_status: approved
-exported_at: "2026-03-02T15:10:28.170629+00:00"
+exported_at: "2026-03-03T15:33:03.820812+00:00"
 content_hash: 459bc5c59708
 chapter_number: 11
 chapter_title: Chapter 11

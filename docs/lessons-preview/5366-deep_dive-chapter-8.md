@@ -2,7 +2,7 @@
 lesson_id: 5366
 lesson_type: deep_dive
 approval_status: approved
-exported_at: "2026-03-02T15:10:27.583440+00:00"
+exported_at: "2026-03-03T15:33:00.509317+00:00"
 content_hash: ff443e423d1d
 chapter_number: 8
 chapter_title: Chapter 8

@@ -1,8 +1,8 @@
 ---
 lesson_id: 5497
 lesson_type: concept
-approval_status: pending
-exported_at: "2026-03-02T15:10:31.101443+00:00"
+approval_status: approved
+exported_at: "2026-03-03T15:33:06.561380+00:00"
 content_hash: d1200a81715b
 chapter_number: 25
 chapter_title: Chapter 25

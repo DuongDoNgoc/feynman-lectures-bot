@@ -2,7 +2,7 @@
 lesson_id: 5450
 lesson_type: deep_dive
 approval_status: approved
-exported_at: "2026-03-02T15:10:29.759445+00:00"
+exported_at: "2026-03-03T15:33:05.338269+00:00"
 content_hash: b6a7ff0f9082
 chapter_number: 18
 chapter_title: Chapter 18
